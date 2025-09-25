@@ -1,9 +1,12 @@
-// wrapper.cpp
+// wrapper_smart.cpp
 #include <jni.h>
 #include <dlfcn.h>
 #include <android/log.h>
 #include <cstdio>
 #include <cstring>
+#include <string>
+#include <vector>
+#include <fstream>
 
 #define LOG_TAG "WRAPPER"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -11,12 +14,76 @@
 
 typedef jint (*JNI_OnLoad_t)(JavaVM*, void*);
 
-// Helper: try RTLD_NEXT first, then explicit dlopen candidates
-static void* find_original_handle() {
-    // If original already loaded and available via RTLD_NEXT symbols, we might not need explicit handle.
-    // But some linkers / namespaces require explicit dlopen.
+static void log_maps() {
+    std::ifstream maps("/proc/self/maps");
+    std::string line;
+    while (std::getline(maps, line)) {
+        LOGI("MAP: %s", line.c_str());
+    }
+}
+
+// Try RTLD_NEXT first
+static JNI_OnLoad_t try_rtld_next() {
+    void* sym = dlsym(RTLD_NEXT, "JNI_OnLoad");
+    if (sym) {
+        LOGI("Found JNI_OnLoad via RTLD_NEXT: %p", sym);
+        return (JNI_OnLoad_t)sym;
+    }
+    LOGI("RTLD_NEXT: no JNI_OnLoad");
+    return nullptr;
+}
+
+// Iterate /proc/self/maps, try dlopen(path, RTLD_NOLOAD) and dlsym
+static JNI_OnLoad_t search_maps_for_onload() {
+    std::ifstream maps("/proc/self/maps");
+    if (!maps.is_open()) {
+        LOGE("Cannot open /proc/self/maps");
+        return nullptr;
+    }
+    std::string line;
+    std::vector<std::string> seen;
+    while (std::getline(maps, line)) {
+        // line format: addr perms offset dev inode pathname
+        auto pos = line.find('/');
+        if (pos == std::string::npos) continue;
+        std::string path = line.substr(pos);
+        if (path.empty()) continue;
+        // filter duplicates
+        bool dup = false;
+        for (auto &s: seen) if (s == path) { dup = true; break; }
+        if (dup) continue;
+        seen.push_back(path);
+
+        // only .so files (quick filter)
+        if (path.find(".so") == std::string::npos) continue;
+
+        // Try to get handle without loading: RTLD_NOLOAD
+        void* handle = dlopen(path.c_str(), RTLD_NOW | RTLD_NOLOAD);
+        if (!handle) {
+            // maybe it's loaded under a different namespace; try normal dlopen (may increase risk)
+            // but skip heavy dlopen by default
+            // LOGI("dlopen NOLOAD failed for %s: %s", path.c_str(), dlerror());
+            continue;
+        }
+        LOGI("dlopen(NOLOAD) succeeded for %s -> handle=%p", path.c_str(), handle);
+        void* sym = dlsym(handle, "JNI_OnLoad");
+        if (sym) {
+            LOGI("Found JNI_OnLoad in %s -> %p", path.c_str(), sym);
+            return (JNI_OnLoad_t)sym;
+        } else {
+            //LOGI("No JNI_OnLoad in %s", path.c_str());
+        }
+        // do not dlclose handles returned by dlopen(RTLD_NOLOAD)
+    }
+    LOGI("search_maps_for_onload: not found");
+    return nullptr;
+}
+
+// Try explicit names (fallback)
+static JNI_OnLoad_t try_explicit_candidates() {
     const char* candidates[] = {
-        "libmain_real.so",   // preferred: what we rename original to in APK
+        "libmain_real.so",
+        "libmain.so", // in case original still there
         "libunity.so",
         "libil2cpp.so",
         "libmono.so",
@@ -24,67 +91,56 @@ static void* find_original_handle() {
     };
 
     for (const char** p = candidates; *p; ++p) {
-        void* h = dlopen(*p, RTLD_NOW | RTLD_GLOBAL);
-        if (h) {
-            LOGI("dlopen succeeded: %s -> %p", *p, h);
-            return h;
-        } else {
-            // debug
-            // LOGI("dlopen failed for %s: %s", *p, dlerror());
+        void* handle = dlopen(*p, RTLD_NOW | RTLD_GLOBAL);
+        if (!handle) {
+            LOGI("dlopen failed for %s: %s", *p, dlerror());
+            continue;
+        }
+        LOGI("dlopen succeeded for %s -> %p", *p, handle);
+        void* sym = dlsym(handle, "JNI_OnLoad");
+        if (sym) {
+            LOGI("Found JNI_OnLoad in candidate %s -> %p", *p, sym);
+            return (JNI_OnLoad_t)sym;
         }
     }
+    LOGI("try_explicit_candidates: not found");
     return nullptr;
 }
 
 extern "C" jint JNI_OnLoad(JavaVM* vm, void* reserved) {
-    LOGI("Wrapper JNI_OnLoad called");
+    LOGI("=== wrapper_smart JNI_OnLoad entered ===");
+    log_maps();
 
-    // 1) Try to get the next symbol via RTLD_NEXT
-    void* sym = dlsym(RTLD_NEXT, "JNI_OnLoad");
-    if (sym) {
-        LOGI("Found JNI_OnLoad via RTLD_NEXT: %p", sym);
-        JNI_OnLoad_t next_onload = (JNI_OnLoad_t)sym;
-
-        // --- place your pre-init hook here ---
-        LOGI("Running pre-init hooks (RTLD_NEXT path)");
-
-        jint res = next_onload(vm, reserved);
-
-        // --- place your post-init hook here ---
-        LOGI("Running post-init hooks (RTLD_NEXT path), returned %d", res);
-        return res;
+    // 1) RTLD_NEXT
+    if (JNI_OnLoad_t func = try_rtld_next()) {
+        LOGI("Calling RTLD_NEXT JNI_OnLoad");
+        // pre-init hook area
+        jint r = func(vm, reserved);
+        // post-init hook area
+        LOGI("RTLD_NEXT JNI_OnLoad returned %d", r);
+        return r;
     }
 
-    // 2) Fallback: explicit dlopen of original lib (renamed in APK)
-    void* handle = find_original_handle();
-    if (!handle) {
-        LOGE("Cannot find original Unity lib (dlopen failed for all candidates).");
-        return -1;
+    // 2) Search loaded modules via /proc/self/maps
+    if (JNI_OnLoad_t func = search_maps_for_onload()) {
+        LOGI("Calling JNI_OnLoad found in maps");
+        jint r = func(vm, reserved);
+        LOGI("maps-found JNI_OnLoad returned %d", r);
+        return r;
     }
 
-    // 3) find JNI_OnLoad in original
-    JNI_OnLoad_t orig_onload = (JNI_OnLoad_t)dlsym(handle, "JNI_OnLoad");
-    if (!orig_onload) {
-        LOGE("dlsym for JNI_OnLoad failed: %s", dlerror());
-        // Not necessarily fatal: maybe original library doesn't export JNI_OnLoad; but most Unity libs do.
-        return -1;
+    // 3) Try explicit candidate names
+    if (JNI_OnLoad_t func = try_explicit_candidates()) {
+        LOGI("Calling JNI_OnLoad from explicit candidate");
+        jint r = func(vm, reserved);
+        LOGI("explicit candidate JNI_OnLoad returned %d", r);
+        return r;
     }
 
-    LOGI("Calling original JNI_OnLoad at %p", orig_onload);
-
-    // --- place your pre-init hook here ---
-    LOGI("Running pre-init hooks (dlopen path)");
-
-    jint result = orig_onload(vm, reserved);
-
-    // --- place your post-init hook here ---
-    LOGI("Running post-init hooks (dlopen path), returned %d", result);
-
-    return result;
+    LOGE("Failed to find any JNI_OnLoad to forward to. Crash likely.");
+    return -1;
 }
 
-// Provide an optional constructor to do early initialization if needed
 __attribute__((constructor)) static void wrapper_ctor() {
-    LOGI("Wrapper constructor executed");
-    // You can initialize hooking framework, open logs, etc.
+    LOGI("wrapper_smart constructor running");
 }
