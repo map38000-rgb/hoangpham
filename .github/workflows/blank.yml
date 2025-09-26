@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  NDK_VERSION: "android-ndk-r25b"    # thay nếu muốn version khác (ví dụ r28c)
+  NDK_VERSION: "android-ndk-r25b"
   NDK_ZIP: "android-ndk-r25b-linux.zip"
   API_LEVEL: "21"
   SRC: "injector_arm64.c"
@@ -19,58 +19,28 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup tools (curl, unzip)
+      - name: Setup tools
         run: sudo apt-get update && sudo apt-get install -y curl unzip
 
-      - name: Download Android NDK zip (cacheable)
-        id: download_ndk
+      - name: Download Android NDK zip
         run: |
-          NDK_ZIP="${{ env.NDK_ZIP }}"
-          if [ -f "${NDK_ZIP}" ]; then
-            echo "NDK zip already exists"
-          else
-            echo "Downloading ${NDK_ZIP} from dl.google.com..."
-            curl -L -o "${NDK_ZIP}" "https://dl.google.com/android/repository/${NDK_ZIP}"
-          fi
+          curl -L -o "${NDK_ZIP}" "https://dl.google.com/android/repository/${NDK_ZIP}"
 
       - name: Unpack NDK
         run: |
-          unzip -q "${{ env.NDK_ZIP }}" -d ./ndk
-          # normalize ndk path (folder name contains version)
-          NDK_DIR=$(find ./ndk -maxdepth 1 -type d -name "${{ env.NDK_VERSION }}*" | head -n1)
-          echo "NDK_DIR=${NDK_DIR}" >> $GITHUB_ENV
-
-      - name: Show selected clang toolchain path
-        run: |
-          echo "Using NDK at: $NDK_DIR"
-          echo "clang: $NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${{ env.API_LEVEL }}-clang"
-          ls -la $NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin | sed -n '1,40p'
+          unzip -q "${NDK_ZIP}" -d ./ndk
+          NDK_DIR=$(find ./ndk -maxdepth 1 -type d -name "${NDK_VERSION}*" | head -n1)
+          echo "NDK_DIR=$NDK_DIR" >> $GITHUB_ENV
 
       - name: Build injector (aarch64)
         run: |
           set -euo pipefail
-          export NDK_DIR=${NDK_DIR}
-          CLANG="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${{ env.API_LEVEL }}-clang"
-          if [ ! -x "$CLANG" ]; then
-            echo "ERROR: clang not found at $CLANG"
-            exit 2
-          fi
-          echo "Compiling ${{ env.SRC }} -> ${{ env.OUT_BIN }}"
-          $CLANG -O2 -fPIE -pie -o "${{ env.OUT_BIN }}" "${{ env.SRC }}" -ldl
-          echo "file:"
-          file ${OUT_BIN} || true
-          ls -la ${OUT_BIN}
+          CLANG="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${API_LEVEL}-clang"
+          $CLANG -O2 -fPIE -pie -o "${OUT_BIN}" "${SRC}" -ldl
+          file ${OUT_BIN}
 
-      - name: Upload artifact (injector)
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: injector-aarch64
-          path: |
-            injector_arm64
-
-      - name: (Optional) Build shared lib example (libmylib.so)
-        if: ${{ exists('libmylib.c') }}
-        run: |
-          # if you have a libmylib.c and want a .so for testing, uncomment:
-          # $CLANG -shared -fPIC -o libmylib.so libmylib.c
-          echo "No libmylib.c found or this step intentionally skipped."
+          path: injector_arm64
