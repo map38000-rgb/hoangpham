@@ -1,40 +1,40 @@
 // injector_arm64.c
-// Build (example with Android NDK clang):
-// aarch64-linux-android21-clang -O2 -static -o injector_arm64 injector_arm64.c
+// Purpose: attach to a PID, try to locate remote dlopen address and print it.
+// Build (example):
+// $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang -O2 -fPIE -pie -o injector_arm64 injector_arm64.c -ldl
 
 #define _GNU_SOURCE
-#include <sys/ptrace.h>
-#include <sys/wait.h>
-#include <sys/uio.h>
-#include <sys/mman.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <dlfcn.h>
-#include <elf.h>
-#include <link.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
+#include <unistd.h>
 #include <errno.h>
-#include <dirent.h>
-#include <sys/personality.h>
-#include <linux/limits.h>
-#include <sys/user.h>
-#include <syscall.h>
+#include <dlfcn.h>
 #include <libgen.h>
+#include <sys/ptrace.h>
+#include <sys/wait.h>
+#include <sys/uio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #ifndef NT_PRSTATUS
 #define NT_PRSTATUS 1
 #endif
-typedef unsigned long ulong;
-typedef long long sll;
 
+// Provide a simple aarch64 user_pt_regs definition if not present
 #if defined(__aarch64__)
-#define REG_TYPE struct user_pt_regs
+/* Minimal user_pt_regs for aarch64 to work with PTRACE_GETREGSET.
+   This matches common kernel layout for regs used here; it is enough for reading/writing. */
+struct user_pt_regs {
+    unsigned long regs[31];
+    unsigned long sp;
+    unsigned long pc;
+    unsigned long pstate;
+};
+typedef struct user_pt_regs REG_TYPE;
 #else
-#error "This injector is for aarch64 only"
+#error "This file targets aarch64 only"
 #endif
 
 static void perror_exit(const char *msg){
@@ -62,7 +62,6 @@ static int ptrace_getregs(pid_t pid, REG_TYPE *regs){
     struct iovec iov;
     iov.iov_base = regs;
     iov.iov_len = sizeof(REG_TYPE);
-    // PTRACE_GETREGSET returns 0 on success
     if(ptrace(PTRACE_GETREGSET, pid, (void*)NT_PRSTATUS, &iov) == -1){
         return -1;
     }
@@ -84,12 +83,10 @@ static int ptrace_write(pid_t pid, void *dest, const void *src, size_t len){
     long val;
     const uint8_t *s = src;
     uint8_t *d = dest;
-    // write word by word (8 bytes)
     for (; i + 8 <= len; i += 8) {
         memcpy(&val, s + i, 8);
         if (ptrace(PTRACE_POKEDATA, pid, d + i, val) == -1) return -1;
     }
-    // leftover
     if (i < len) {
         uint8_t buf[8] = {0};
         memcpy(buf, s + i, len - i);
@@ -99,58 +96,7 @@ static int ptrace_write(pid_t pid, void *dest, const void *src, size_t len){
     return 0;
 }
 
-static void* get_remote_symbol_address(pid_t pid, const char* module, const char* symbol){
-    // Parse /proc/<pid>/maps to find remote module base, then compute symbol offset from local.
-    FILE *f;
-    char maps_path[64], line[512];
-    unsigned long base = 0;
-    snprintf(maps_path, sizeof(maps_path), "/proc/%d/maps", pid);
-    f = fopen(maps_path, "r");
-    if(!f) return NULL;
-    while(fgets(line, sizeof(line), f)){
-        if(strstr(line, module)){
-            unsigned long a,b_local;
-            if(sscanf(line, "%lx-%lx", &a,&b_local)==2){
-                base = a;
-                break;
-            }
-        }
-    }
-    fclose(f);
-    if(!base) return NULL;
-
-    // load local module handle
-    void *local_handle = dlopen(module, RTLD_NOW);
-    if(!local_handle) return NULL;
-    void *local_sym = dlsym(local_handle, symbol);
-    if(!local_sym){
-        dlclose(local_handle);
-        return NULL;
-    }
-    // find local module base by reading /proc/self/maps
-    FILE *fs = fopen("/proc/self/maps", "r");
-    if(!fs){
-        dlclose(local_handle);
-        return NULL;
-    }
-    unsigned long local_base = 0;
-    unsigned long b = 0;
-    while(fgets(line,sizeof(line),fs)){
-        if(strstr(line, module)){
-            if(sscanf(line, "%lx-%lx", &local_base, &b)==2) break;
-        }
-    }
-    fclose(fs);
-    if(!local_base){
-        dlclose(local_handle);
-        return NULL;
-    }
-    unsigned long offset = (unsigned long)local_sym - local_base;
-    void *remote_addr = (void*)(base + offset);
-    dlclose(local_handle);
-    return remote_addr;
-}
-
+// Robust remote symbol finder by basename (module_basename: "libc.so" or "linker64")
 static void *get_remote_symbol_address_by_basename(pid_t pid, const char* module_basename, const char* symbol){
     char maps_path[64], line[512];
     unsigned long remote_base = 0;
@@ -161,7 +107,6 @@ static void *get_remote_symbol_address_by_basename(pid_t pid, const char* module
     f = fopen(maps_path, "r");
     if(!f) return NULL;
     while(fgets(line, sizeof(line), f)){
-        // the module path is at end of line; check if line contains module_basename
         char *p = strrchr(line, '/');
         if(p){
             char *bn = basename(p);
@@ -173,7 +118,6 @@ static void *get_remote_symbol_address_by_basename(pid_t pid, const char* module
                 }
             }
         } else {
-            // sometimes maps line might contain just module_basename without full path
             if(strstr(line, module_basename)){
                 unsigned long a,b;
                 if(sscanf(line, "%lx-%lx", &a, &b) == 2){
@@ -214,11 +158,17 @@ static void *get_remote_symbol_address_by_basename(pid_t pid, const char* module
     fclose(fs);
     if(!local_base) return NULL;
 
-    // 3) get local symbol address: try dlsym on RTLD_DEFAULT (process-wide). If symbol is in linker/libc, dlsym should find.
+    // 3) get local symbol address: try process-wide dlsym
     void *local_sym = dlsym(RTLD_DEFAULT, symbol);
     if(!local_sym){
-        // fallback: try dlopen of common full paths to get symbol
-        const char *cands[] = {"/system/lib64/libc.so","/apex/com.android.runtime/lib64/bionic/libc.so","/system/bin/linker64","/apex/com.android.runtime/bin/linker64", NULL};
+        // fallback: try dlopen of common full paths with RTLD_NOW|RTLD_NOLOAD
+        const char *cands[] = {
+            "/system/bin/linker64",
+            "/apex/com.android.runtime/bin/linker64",
+            "/system/lib64/libc.so",
+            "/apex/com.android.runtime/lib64/bionic/libc.so",
+            NULL
+        };
         for(int i=0; cands[i]; ++i){
             void *h = dlopen(cands[i], RTLD_NOW | RTLD_NOLOAD);
             if(h){
@@ -233,4 +183,58 @@ static void *get_remote_symbol_address_by_basename(pid_t pid, const char* module
     unsigned long offset = (unsigned long)local_sym - local_base;
     void *remote_addr = (void*)(remote_base + offset);
     return remote_addr;
+}
+
+static void usage(const char *p){
+    fprintf(stderr, "Usage: %s <pid> <lib_full_path_to_inject>\n", p);
+    fprintf(stderr, "This tool currently ATTACHES and prints candidate remote dlopen addresses.\n");
+    fprintf(stderr, "It does not perform the final remote dlopen call (safe-by-default).\n");
+}
+
+int main(int argc, char **argv){
+    if(argc < 3){
+        usage(argv[0]);
+        return 1;
+    }
+    pid_t pid = parse_pid(argv[1]);
+    const char *lib_path = argv[2];
+
+    // quick checks
+    if(access(lib_path, R_OK) != 0){
+        fprintf(stderr, "Library not readable: %s (%s)\n", lib_path, strerror(errno));
+        // continue: user may still want to get dlopen address
+    }
+
+    printf("[*] Attaching to pid %d ...\n", pid);
+    if(ptrace_attach(pid) != 0){
+        fprintf(stderr, "ptrace_attach failed: %s\n", strerror(errno));
+        return 1;
+    }
+    printf("[+] attached.\n");
+
+    // Try various candidate basenames and symbols
+    const char *candidates[] = {"linker64", "libc.so", "libdl.so", "linker", NULL};
+    const char *symbols[] = {"dlopen", "android_dlopen_ext", NULL};
+
+    for(int i=0; candidates[i]; ++i){
+        for(int j=0; symbols[j]; ++j){
+            void *addr = get_remote_symbol_address_by_basename(pid, candidates[i], symbols[j]);
+            if(addr){
+                printf("[+] Found %s in %s -> remote address: %p (symbol %s)\n",
+                       symbols[j], candidates[i], addr, symbols[j]);
+            } else {
+                printf("[-] %s not found in %s\n", symbols[j], candidates[i]);
+            }
+        }
+    }
+
+    printf("[*] Note: this tool currently does NOT perform remote dlopen.\n");
+    printf("[*] If you want full injection (mmap remote, write path, call dlopen), tell me and I will generate the full injector routine (it is riskier and device-specific).\n");
+
+    if(ptrace_detach(pid) != 0){
+        fprintf(stderr, "ptrace_detach failed: %s\n", strerror(errno));
+        return 1;
+    }
+    printf("[+] detached.\n");
+    return 0;
 }
