@@ -115,12 +115,15 @@
     </div>
 
     <script>
+        var audio = new Audio('https://map38000-rgb.github.io/hoangpham/ph%E1%BA%A3i%20ch%E1%BB%8Bu.mp3');
+
         function proceedToPresentation(button) {
             button.innerText = 'phải chịu !';
+            audio.play();
             setTimeout(function() {
                 document.getElementById('selection').style.display = 'none';
                 document.getElementById('presentation').style.display = 'block';
-            }, 1000); // Delay 1 giây để thấy text thay đổi
+            }, 1000);
         }
 
         document.getElementById('sang').addEventListener('click', function() {
