@@ -36,55 +36,111 @@
         p {
             line-height: 1.6;
         }
+        .selection-slide {
+            text-align: center;
+        }
+        .selection-slide button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: 1px solid #2980b9;
+            background-color: #f4f4f4;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        .selection-slide button.strikethrough {
+            text-decoration: line-through;
+            color: #999;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
 
-    <div class="slide">
-        <h1>Phân tích truyện ngắn Đời thừa của Nam Cao</h1>
+    <div id="selection" class="slide selection-slide">
+        <h2>Vui lòng chọn học sinh thuyết trình:</h2>
+        <button id="sang">Sang</button>
+        <button id="hue">Huế</button>
+        <button id="tienanh">Tiến Anh</button>
+        <button id="hoang">Hoàng</button>
     </div>
 
-    <div class="slide">
-        <h2>I. MỞ BÀI</h2>
-        <ol>
-            <li>Truyện ngắn Đời thừa đăng trên tuần báo Tiểu thuyết thứ bảy số 409 ra ngày 4/12/1943.</li>
-            <li>Tác giả cảm thông và xót xa đối với tấn bi kịch tinh thần đau đớn, dai dẳng của người trí thức nghèo có tài năng, có tâm huyết, giàu lòng nhân đạo trong xã hội thực dân phong kiến. Đồng thời lên án gay gắt cái xã hội ngột ngạt bóp chết mọi mơ ước, tước đi cuộc sống chân chính của con người, đã đầu độc tâm hồn con người và mối quan hệ vốn đẹp đẽ giữa người và người.</li>
-        </ol>
+    <div id="presentation" style="display: none;">
+        <div class="slide">
+            <h1>Phân tích truyện ngắn Đời thừa của Nam Cao</h1>
+        </div>
+
+        <div class="slide">
+            <h2>I. MỞ BÀI</h2>
+            <ol>
+                <li>Truyện ngắn Đời thừa đăng trên tuần báo Tiểu thuyết thứ bảy số 409 ra ngày 4/12/1943.</li>
+                <li>Tác giả cảm thông và xót xa đối với tấn bi kịch tinh thần đau đớn, dai dẳng của người trí thức nghèo có tài năng, có tâm huyết, giàu lòng nhân đạo trong xã hội thực dân phong kiến. Đồng thời lên án gay gắt cái xã hội ngột ngạt bóp chết mọi mơ ước, tước đi cuộc sống chân chính của con người, đã đầu độc tâm hồn con người và mối quan hệ vốn đẹp đẽ giữa người và người.</li>
+            </ol>
+        </div>
+
+        <div class="slide">
+            <h2>II. THÂN BÀI</h2>
+            <h3>1. Nhân vật Từ</h3>
+            <ul>
+                <li><strong>Ngoại hình:</strong> Nam Cao rất ít tả ngoại hình của nhân vật Từ. Chỉ có một vài nét vẽ, tác giả tả Từ - một người đàn bà bạc mệnh: Da mặt xanh nhợt, môi nhợt nhạt, mắt có quầng, má hơi hóp lại..Cái bàn tay lủng củng rặt những xương, cổ tay mỏng. Làn da mỏng</li>
+                <li>Nam Cao với trái tim nhân đạo đã miêu tả sâu sắc tâm hồn nhân hậu của Từ, cảm thông với nỗi đau của Từ, của bao người phụ nữ bạc mệnh và đau khổ trong xã hội cũ.</li>
+            </ul>
+        </div>
+
+        <div class="slide">
+            <h3>2. Nhân vật Hộ</h3>
+            <h4>a.</h4>
+            <p>Hộ là một nhà văn nhân đạo chủ nghĩa. Với Hộ thì trang văn là cuộc đời, thấm tình đời phải chứa đựng được một cái gì lớn lao, mạnh mẽ, vừa đau đớn, lại vừa phấn khởi. Nó ca tụng lòng thương, tình bác ái. Đó là một quan niệm rất tiến bộ, quan niệm nghệ thuật vị nhân sinh. Nhà văn phải vì con người, vì hạnh phúc của con người. Qua đó, ta thấy, là con người xã hội, là nhà văn, là người chồng người cha, trong con người và tâm hồn Hộ đều tỏa sáng một tình nhân ái bao la.</p>
+        </div>
+
+        <div class="slide">
+            <h4>b. Cuộc đời của Hộ khi làm nhà văn</h4>
+            <p>Văn chương đối với Hộ như là một cái nghiệp. Nợ áo cơm ghì sát đất, nhưng anh vẫn mê văn. Hộ nói, đọc được một câu văn hay mà hiểu được thì dẫu ăn một món ăn ngon đến đâu cũng không thích bằng. Hộ điên người lên vì phải xoay tiền nhưng hắn bảo khổ thì khổ thật, nhưng thử có người giàu bạc vạn nào thuận đổi lấy cái địa vị của tôi, chưa chắc tôi đã đổi.</p>
+            <ul>
+                <li>Mất dần cuộc đời hồn nhiên trong sáng, có lúc chan chứa nước mắt, mặt hầm hầm. Hắn đọc sách mà trông cũng dữ tợn: đôi lông mày rậm... châu đầu lại với nhau... cái mặt hốc hác...</li>
+                <li>Nỗi đau ấy được cực tả qua câu hát cho hai hàng lệ đầm đìa tấm thương. Tiếng khóc của Hộ, tiếng khóc của Từ mang ý nghĩa tố cáo cái xã hội tàn các đã cướp đi mọi mơ ước, đã đày đọa cuộc sống của mỗi gia đình, đã đầu độc tâm hồn con người và làm méo mó mối quan hệ vốn tốt đẹp giữa người và người.</li>
+                <li>Cũng qua nhân vật Hộ, Nam Cao đã thể hiện ngòi bút hiện thực vừa tỉnh táo, sắc lạnh, vừa nặng trĩu suy nghĩ và đằm thắm yêu thương. Nghệ thuật phân tích tâm lí nhân vật qua dòng độc thoại, qua tiếng khóc của Hộ và Từ làm cho người đọc vô cùng thấm thìa về bi kịch của một trí thức nghèo, của một nhà văn nghèo trong xã hội cũ.</li>
+            </ul>
+        </div>
+
+        <div class="slide">
+            <h2>III. KẾT</h2>
+            <p>Qua đây Truyện Đời thừa là một thành công tiêu biếu của Nam Cao viết về đề tài người trí thức nghèo trước Cách mạng Truyện đã hàm chứa một tính nhân đạo và có giá trị tố cáo hiện thực sâu sắc. Truyện Đời thừa đến Độ trong Đôi mắt cũng là một nhịp đời một nhịp đời của Nam Cao đến với Cách mạng và cũng là một nhịp đời của Nam Cao đến với Cách mạng và kháng chiến.</p>
+        </div>
+
+        <div class="slide">
+            <p>Developer: Hoàng Phạm</p>
+        </div>
     </div>
 
-    <div class="slide">
-        <h2>II. THÂN BÀI</h2>
-        <h3>1. Nhân vật Từ</h3>
-        <ul>
-            <li><strong>Ngoại hình:</strong> Nam Cao rất ít tả ngoại hình của nhân vật Từ. Chỉ có một vài nét vẽ, tác giả tả Từ - một người đàn bà bạc mệnh: Da mặt xanh nhợt, môi nhợt nhạt, mắt có quầng, má hơi hóp lại..Cái bàn tay lủng củng rặt những xương, cổ tay mỏng. Làn da mỏng</li>
-            <li>Nam Cao với trái tim nhân đạo đã miêu tả sâu sắc tâm hồn nhân hậu của Từ, cảm thông với nỗi đau của Từ, của bao người phụ nữ bạc mệnh và đau khổ trong xã hội cũ.</li>
-        </ul>
-    </div>
+    <script>
+        function proceedToPresentation(button) {
+            button.innerText = 'phải chịu !';
+            setTimeout(function() {
+                document.getElementById('selection').style.display = 'none';
+                document.getElementById('presentation').style.display = 'block';
+            }, 1000); // Delay 1 giây để thấy text thay đổi
+        }
 
-    <div class="slide">
-        <h3>2. Nhân vật Hộ</h3>
-        <h4>a.</h4>
-        <p>Hộ là một nhà văn nhân đạo chủ nghĩa. Với Hộ thì trang văn là cuộc đời, thấm tình đời phải chứa đựng được một cái gì lớn lao, mạnh mẽ, vừa đau đớn, lại vừa phấn khởi. Nó ca tụng lòng thương, tình bác ái. Đó là một quan niệm rất tiến bộ, quan niệm nghệ thuật vị nhân sinh. Nhà văn phải vì con người, vì hạnh phúc của con người. Qua đó, ta thấy, là con người xã hội, là nhà văn, là người chồng người cha, trong con người và tâm hồn Hộ đều tỏa sáng một tình nhân ái bao la.</p>
-    </div>
+        document.getElementById('sang').addEventListener('click', function() {
+            proceedToPresentation(this);
+        });
 
-    <div class="slide">
-        <h4>b. Cuộc đời của Hộ khi làm nhà văn</h4>
-        <p>Văn chương đối với Hộ như là một cái nghiệp. Nợ áo cơm ghì sát đất, nhưng anh vẫn mê văn. Hộ nói, đọc được một câu văn hay mà hiểu được thì dẫu ăn một món ăn ngon đến đâu cũng không thích bằng. Hộ điên người lên vì phải xoay tiền nhưng hắn bảo khổ thì khổ thật, nhưng thử có người giàu bạc vạn nào thuận đổi lấy cái địa vị của tôi, chưa chắc tôi đã đổi.</p>
-        <ul>
-            <li>Mất dần cuộc đời hồn nhiên trong sáng, có lúc chan chứa nước mắt, mặt hầm hầm. Hắn đọc sách mà trông cũng dữ tợn: đôi lông mày rậm... châu đầu lại với nhau... cái mặt hốc hác...</li>
-            <li>Nỗi đau ấy được cực tả qua câu hát cho hai hàng lệ đầm đìa tấm thương. Tiếng khóc của Hộ, tiếng khóc của Từ mang ý nghĩa tố cáo cái xã hội tàn các đã cướp đi mọi mơ ước, đã đày đọa cuộc sống của mỗi gia đình, đã đầu độc tâm hồn con người và làm méo mó mối quan hệ vốn tốt đẹp giữa người và người.</li>
-            <li>Cũng qua nhân vật Hộ, Nam Cao đã thể hiện ngòi bút hiện thực vừa tỉnh táo, sắc lạnh, vừa nặng trĩu suy nghĩ và đằm thắm yêu thương. Nghệ thuật phân tích tâm lí nhân vật qua dòng độc thoại, qua tiếng khóc của Hộ và Từ làm cho người đọc vô cùng thấm thìa về bi kịch của một trí thức nghèo, của một nhà văn nghèo trong xã hội cũ.</li>
-        </ul>
-    </div>
+        document.getElementById('hue').addEventListener('click', function() {
+            proceedToPresentation(this);
+        });
 
-    <div class="slide">
-        <h2>III. KẾT</h2>
-        <p>Qua đây Truyện Đời thừa là một thành công tiêu biếu của Nam Cao viết về đề tài người trí thức nghèo trước Cách mạng Truyện đã hàm chứa một tính nhân đạo và có giá trị tố cáo hiện thực sâu sắc. Truyện Đời thừa đến Độ trong Đôi mắt cũng là một nhịp đời một nhịp đời của Nam Cao đến với Cách mạng và cũng là một nhịp đời của Nam Cao đến với Cách mạng và kháng chiến.</p>
-    </div>
+        document.getElementById('tienanh').addEventListener('click', function() {
+            proceedToPresentation(this);
+        });
 
-    <div class="slide">
-        <p>Developer: Hoàng Phạm</p>
-    </div>
+        document.getElementById('hoang').addEventListener('click', function() {
+            if (!this.classList.contains('strikethrough')) {
+                this.classList.add('strikethrough');
+            }
+        });
+    </script>
 
 </body>
 </html>
