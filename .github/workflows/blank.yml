@@ -1,9 +1,9 @@
-//
 name: Build Android NDK Library
 
 on:
   push:
-    branches: [ main ]
+    branches: 
+      - main
   pull_request:
 
 jobs:
@@ -14,8 +14,10 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v3
 
-      - name: Install CMake + Ninja
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
+      - name: Install CMake and Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
 
       - name: Download Android NDK
         run: |
@@ -23,7 +25,7 @@ jobs:
           unzip android-ndk-r26d-linux.zip -d $HOME
           echo "ANDROID_NDK_HOME=$HOME/android-ndk-r26d" >> $GITHUB_ENV
 
-      - name: Build with CMake (armeabi-v7a)
+      - name: Build armeabi-v7a
         run: |
           cmake -B build-armv7 \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
@@ -32,7 +34,7 @@ jobs:
             -G Ninja
           cmake --build build-armv7
 
-      - name: Build with CMake (arm64-v8a)
+      - name: Build arm64-v8a
         run: |
           cmake -B build-arm64 \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
