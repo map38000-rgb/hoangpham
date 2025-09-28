@@ -1,10 +1,10 @@
-// mylib.c
 #include <stdio.h>
 #include <time.h>
 #include <android/log.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <errno.h>   // cần cho errno
+#include <errno.h>
+#include <pthread.h>
 
 #define LOG_TAG "MYLIB"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -23,6 +23,7 @@ static void write_log_file(const char *msg) {
         const char *p = paths[i];
 
         if (i == 1) {
+            // ignore error, maybe already exists
             mkdir("/sdcard/Download", 0777);
         }
 
@@ -49,16 +50,45 @@ static void write_log_file(const char *msg) {
     LOGE("failed to write log to any path");
 }
 
-__attribute__((constructor))
-static void on_load(void) {
-    const char *msg = "mylib loaded successfully";
-    LOGI("%s", msg);
-    write_log_file(msg);
+/* --- worker thread --- */
+static void *init_worker(void *arg) {
+    (void)arg;
+    LOGI("init_worker: started");
+    write_log_file("mylib init_worker started");
+    // thêm các bước init nặng khác ở đây, nếu cần, nhưng tránh gọi API Java đồng bộ
+    write_log_file("mylib init_worker done");
+    LOGI("init_worker: done");
+    return NULL;
 }
 
+/* Nếu bạn muốn giữ constructor, chỉ để log rất nhẹ (không I/O) hoặc xóa hẳn */
+__attribute__((constructor))
+static void on_load(void) {
+    // chỉ log tới logcat (không file I/O)
+    LOGI("mylib constructor called (no heavy work here)");
+}
+
+/* JNI_OnLoad: trả về nhanh và spawn detached worker thread */
 #include <jni.h>
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
-    LOGI("JNI_OnLoad called");
-    write_log_file("JNI_OnLoad called");
+    (void)vm;
+    (void)reserved;
+
+    LOGI("JNI_OnLoad called - spawning init worker");
+    // create detached thread
+    pthread_t t;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+    int r = pthread_create(&t, &attr, init_worker, NULL);
+    if (r != 0) {
+        LOGE("pthread_create failed: %d", r);
+        // fallback: do not block; we'll just log error
+    } else {
+        LOGI("init worker created");
+    }
+    pthread_attr_destroy(&attr);
+
     return JNI_VERSION_1_6;
 }
