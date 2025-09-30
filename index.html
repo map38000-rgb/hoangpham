@@ -1,0 +1,416 @@
+<!DOCTYPE html>  <html lang="vi">    <head>    
+  <meta charset="UTF-8">    
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">    
+  <title>Bài Thuyết Trình: Đời Thừa - Nam Cao</title>    
+  <!-- SwiperJS -->    
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />    
+  <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>    
+  <!-- Google Fonts -->    
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">    <style>    
+    body {    
+      font-family: 'Roboto', sans-serif;    
+      background: linear-gradient(to bottom, #f0f4f8, #d9e2ec);    
+      margin: 0;    
+      height: 100vh;    
+      display: flex;    
+      justify-content: center;    
+      align-items: center;    
+      overflow: hidden;    
+    }    /* Container tiêu đề và ảnh ban đầu */    
+.intro-title {    
+  position: fixed;    
+  inset: 0;    
+  display: flex;    
+  flex-direction: column;    
+  justify-content: center;    
+  align-items: center;    
+  background: #000;    
+  z-index: 10000;    
+  opacity: 1;    
+  transition: opacity 1s ease-in-out;    
+}    
+.intro-title.hidden {    
+  opacity: 0;    
+  pointer-events: none;    
+}    
+.intro-title h1 {    
+  color: #fff;    
+  font-size: 3rem;    
+  margin: 0;    
+  text-align: center;    
+  font-family: 'Playfair Display', serif;    
+}    
+.intro-title p {    
+  color: #ccc;    
+  font-size: 1.5rem;    
+  margin: 10px 0;    
+  font-family: 'Roboto', sans-serif;    
+}    
+.intro-title img {    
+  width: 200px;    
+  height: 200px;    
+  object-fit: cover;    
+  border-radius: 10px;    
+  margin-top: 20px;    
+}    
+
+/* Intro iPhone */    
+.intro-iphone {    
+  position: fixed;    
+  inset: 0;    
+  display: flex;    
+  justify-content: center;    
+  align-items: center;    
+  background: #000;    
+  perspective: 2500px;    
+  z-index: 9999;    
+  opacity: 0;    
+  transition: opacity 1s ease-in-out;    
+}    
+.intro-iphone.visible {    
+  opacity: 1;    
+}    
+
+/* iPhone 3D box */    
+.iphone-frame {    
+  width: 320px;    
+  height: 640px;    
+  position: relative;    
+  transform-style: preserve-3d;    
+  transform: rotateY(70deg) rotateX(10deg) scale(1);    
+  animation: tiltView 3s ease-in-out forwards,    
+             rotateToLandscape 3s ease-in-out forwards,    
+             zoomToScreen 2s ease-in-out forwards;    
+  animation-delay: 0s, 3s, 6s;    
+}    
+
+/* Các mặt */    
+.iphone-face {    
+  position: absolute;    
+  width: 100%;    
+  height: 100%;    
+  border-radius: 40px;    
+  overflow: hidden;    
+}    
+
+/* Mặt trước */    
+.iphone-front {    
+  background: #111;    
+  transform: translateZ(12px);    
+  border: 10px solid #ccc;    
+  border-radius: 45px;    
+  display: flex;    
+  justify-content: center;    
+  align-items: center;    
+  position: relative;    
+}    
+.iphone-front img {    
+  width: 100%;    
+  height: 100%;    
+  object-fit: cover;    
+  opacity: 0;    
+  animation: fadeIn 2s ease forwards, hideImageOnZoom 2s ease forwards;    
+  animation-delay: 3s, 6s;    
+  border-radius: 35px;    
+  transform: rotate(0deg); /* Đảm bảo ảnh không xoay khi iPhone xoay */    
+}    
+
+/* Thêm camera + loa */    
+.notch {    
+  position: absolute;    
+  top: 8px;    
+  width: 120px;    
+  height: 28px;    
+  background: #111;    
+  border-radius: 14px;    
+  display: flex;    
+  justify-content: center;    
+  align-items: center;    
+  gap: 10px;    
+  z-index: 10;    
+}    
+.notch-camera {    
+  width: 8px;    
+  height: 8px;    
+  border-radius: 50%;    
+  background: #0cf;    
+}    
+.notch-speaker {    
+  width: 50px;    
+  height: 6px;    
+  background: #333;    
+  border-radius: 3px;    
+}    
+
+/* Mặt sau */    
+.iphone-back {    
+  background: linear-gradient(145deg, #999, #555);    
+  transform: rotateY(180deg) translateZ(12px);    
+  border-radius: 45px;    
+}    
+
+/* Viền trái/phải */    
+.iphone-left, .iphone-right {    
+  width: 24px;    
+  height: 100%;    
+  background: linear-gradient(#888, #444);    
+  position: absolute;    
+  top: 0;    
+}    
+.iphone-left { left: -12px; transform: rotateY(90deg) translateZ(160px); }    
+.iphone-right { right: -12px; transform: rotateY(90deg) translateZ(-160px); }    
+
+/* Nút vật lý */    
+.btn {    
+  position: absolute;    
+  background: #555;    
+  border-radius: 2px;    
+}    
+.btn.power {    
+  right: -6px;    
+  top: 200px;    
+  width: 4px;    
+  height: 60px;    
+}    
+.btn.vol-up {    
+  left: -6px;    
+  top: 150px;    
+  width: 4px;    
+  height: 40px;    
+}    
+.btn.vol-down {    
+  left: -6px;    
+  top: 210px;    
+  width: 4px;    
+  height: 40px;    
+}    
+
+/* Viền trên/dưới */    
+.iphone-top, .iphone-bottom {    
+  width: 100%;    
+  height: 24px;    
+  background: linear-gradient(#777, #333);    
+  position: absolute;    
+  left: 0;    
+}    
+.iphone-top { top: -12px; transform: rotateX(90deg) translateZ(320px); }    
+.iphone-bottom { bottom: -12px; transform: rotateX(90deg) translateZ(-320px); }    
+
+/* Hiệu ứng xoay */    
+@keyframes tiltView {    
+  0% { transform: rotateY(70deg) rotateX(10deg) scale(1); }    
+  100% { transform: rotateY(70deg) rotateX(10deg) scale(1.1); }    
+}    
+@keyframes rotateToLandscape {    
+  from { transform: rotateY(70deg) rotateX(10deg) scale(1.1) rotateZ(0deg); }    
+  to   { transform: rotateY(0deg) rotateX(0deg) scale(1.1) rotateZ(90deg); }    
+}    
+@keyframes zoomToScreen {    
+  from { transform: rotateZ(90deg) scale(1.1); }    
+  to   { transform: rotateZ(90deg) scale(3); }    
+}    
+@keyframes fadeIn {    
+  to { opacity: 1; }    
+}    
+@keyframes hideImageOnZoom {    
+  from { opacity: 1; }    
+  to { opacity: 0; }    
+}    
+
+/* Swiper */    
+.swiper {    
+  width: 95%;    
+  max-width: 1000px;    
+  height: 700px;    
+  border: 8px solid #6d4c41;    
+  border-radius: 20px;    
+  background: #fdfdfd;    
+  box-shadow: 0 15px 40px rgba(0,0,0,0.25);    
+  opacity: 0;    
+  transition: opacity 1s ease;    
+}    
+.swiper.show { opacity: 1; }    
+.swiper-slide {    
+  display: flex;    
+  flex-direction: column;    
+  justify-content: flex-start;    
+  align-items: center;    
+  text-align: center;    
+  padding: 40px;    
+  box-sizing: border-box;    
+  background: rgba(255, 255, 255, 0.95);    
+  overflow-y: auto;    
+}    
+
+h1, h2, h3 {    
+  font-family: 'Playfair Display', serif;    
+  color: #3e2723;    
+  margin: 20px 0;    
+  opacity: 0;    
+  transform: translateY(40px);    
+  transition: all 1.2s ease;    
+  font-weight: 700;    
+}    
+h1 { font-size: 2.5em; }    
+h2 { font-size: 2em; }    
+h3 { font-size: 1.5em; }    
+
+p, ul {    
+  font-size: 18px;    
+  line-height: 1.8;    
+  text-align: justify;    
+  max-width: 850px;    
+  opacity: 0;    
+  transform: translateX(-40px);    
+  transition: all 1.2s ease;    
+  color: #4e342e;    
+}    
+ul { margin-left: 40px; text-align: left; }    
+
+.swiper-slide-active h1,    
+.swiper-slide-active h2,    
+.swiper-slide-active h3,    
+.swiper-slide-active p,    
+.swiper-slide-active ul {    
+  opacity: 1;    
+  transform: translateX(0) translateY(0);    
+}    
+
+.intro, .conclusion {    
+  font-style: italic;    
+  color: #5d4037;    
+  background: #f9f9f9;    
+  padding: 15px;    
+  border-radius: 12px;    
+  margin: 20px 0;    
+  width: 90%;    
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);    
+}    
+
+.swiper-button-next,    
+.swiper-button-prev {    
+  color: #5d4037;    
+  background: rgba(255,255,255,0.7);    
+  padding: 10px;    
+  border-radius: 50%;    
+}    
+.swiper-pagination-bullet { background: #bcaaa4; opacity: 0.8; }    
+.swiper-pagination-bullet-active { background: #5d4037; opacity: 1; }
+
+</style>  </head>
+
+<body>    
+  <!-- Container tiêu đề và ảnh ban đầu -->    
+  <div class="intro-title">    
+    <h1>Đời Thừa – Nam Cao</h1>    
+    <p>Bài thuyết trình</p>    
+    <img src="https://book.sachgiai.com/uploads/book/doi-thua/doi-thua-nam-cao.jpg" alt="Nam Cao">    
+  </div>    <!-- Intro iPhone -->    <div class="intro-iphone">    
+    <div class="iphone-frame">    
+      <div class="iphone-face iphone-front">    
+        <div class="notch">    
+          <div class="notch-camera"></div>    
+          <div class="notch-speaker"></div>    
+        </div>    
+        <img src="https://upload.wikimedia.org/wikipedia/commons/b/b0/Portrait_of_Nam_Cao.jpg" alt="Nam Cao">    
+      </div>    
+      <div class="iphone-face iphone-back"></div>    
+      <div class="iphone-left"></div>    
+      <div class="iphone-right"></div>    
+      <div class="iphone-top"></div>    
+      <div class="iphone-bottom"></div>    
+      <!-- Nút vật lý -->    
+      <div class="btn power"></div>    
+      <div class="btn vol-up"></div>    
+      <div class="btn vol-down"></div>    
+    </div>    
+  </div>    <!-- Swiper -->    <div class="swiper">    
+    <div class="swiper-wrapper">    
+      <!-- Trang bìa -->    
+      <div class="swiper-slide">    
+        <h1>Đời Thừa – Nam Cao</h1>    
+        <p>Bài thuyết trình</p>    
+      </div>  <!-- Mở đầu -->    
+  <div class="swiper-slide">    
+    <h2>1. Mở đầu</h2>    
+    <p>Kính thưa thầy cô và các bạn,</p>    
+    <p>    
+      Hôm nay em xin trình bày về tác phẩm <b>Đời thừa</b> của nhà văn Nam Cao –     
+      một cây bút hiện thực phê phán xuất sắc trong nền văn học Việt Nam giai đoạn 1930 – 1945.    
+      Qua tác phẩm này, Nam Cao đã khắc họa bi kịch tinh thần đau đớn của tầng lớp trí thức tiểu tư sản,    
+      đồng thời thể hiện quan niệm nghệ thuật và tư tưởng nhân đạo sâu sắc.    
+    </p>    
+  </div>      <!-- Giới thiệu tác giả -->      <div class="swiper-slide">    
+    <h2>2. Giới thiệu tác giả – tác phẩm</h2>    
+    <p><b>Nam Cao (1915 – 1951):</b> Nhà văn hiện thực xuất sắc, một trong những cây bút tiêu biểu nhất của văn học Việt Nam hiện đại.</p>    
+    <ul>    
+      <li>Phong cách trần thuật lạnh lùng, sắc sảo nhưng đầy nhân đạo.</li>    
+      <li>Phản ánh kiếp người nghèo khổ, bị bần cùng hóa.</li>    
+    </ul>    
+    <p><b>Tác phẩm Đời thừa:</b> Viết năm 1943, tiêu biểu cho đề tài trí thức tiểu tư sản, cùng với <em>Sống mòn, Giăng sáng, Trăng sáng</em>.</p>    
+  </div>      <!-- Nội dung: Tóm tắt -->      <div class="swiper-slide">    
+    <h2>3a. Tóm tắt tác phẩm</h2>    
+    <p>Nhân vật chính: <b>Hộ</b> – trí thức có tài năng, khát vọng nghệ thuật lớn lao, muốn sáng tạo tác phẩm có ích cho đời.</p>    
+    <p>Tuy nhiên, anh phải đối diện với cảnh nghèo khổ, gánh nặng gia đình.</p>    
+    <p>Hộ rơi vào mâu thuẫn giữa lý tưởng nghệ thuật và trách nhiệm đời sống → dẫn đến bi kịch: bất lực, tha hóa, dằn vặt.</p>    
+  </div>      <!-- Bi kịch Hộ -->      <div class="swiper-slide">    
+    <h2>3b. Bi kịch nhân vật Hộ (1)</h2>    
+    <h3>Bi kịch lý tưởng bị vùi dập</h3>    
+    <p>Hộ khao khát sáng tạo văn chương để ca ngợi tình thương, lòng bác ái.</p>    
+    <p>Nhưng vì cơm áo, anh phải viết những bài xoàng xĩnh để kiếm sống.</p>    
+    <p>Ý thức được sự xuống cấp, Hộ thấy mình “sống thừa”, “viết thừa”.</p>    
+  </div>      <div class="swiper-slide">    
+    <h2>3b. Bi kịch nhân vật Hộ (2)</h2>    
+    <h3>Bi kịch đời sống gia đình</h3>    
+    <p>Hộ yêu thương vợ con nhưng vì nghèo túng mà nhiều khi cáu gắt, thô bạo.</p>    
+    <p>Sau đó lại ân hận, dằn vặt vì đã chà đạp lên tình thương của chính mình.</p>    
+  </div>      <div class="swiper-slide">    
+    <h2>3b. Bi kịch nhân vật Hộ (3)</h2>    
+    <h3>Bi kịch tinh thần sâu sắc</h3>    
+    <p>Luôn sống trong mâu thuẫn: khát vọng – hiện thực, tình thương – ích kỉ, nghệ sĩ – người chồng nghèo.</p>    
+    <p>Hộ nhận thức rõ sự tha hóa nhưng không thoát ra được, chìm trong dằn vặt, tuyệt vọng.</p>    
+  </div>      <!-- Giá trị -->      <div class="swiper-slide">    
+    <h2>3c. Giá trị nội dung – nghệ thuật</h2>    
+    <p><b>Giá trị hiện thực:</b> Phản ánh cuộc sống cơ cực, bế tắc của trí thức tiểu tư sản.</p>    
+    <p><b>Giá trị nhân đạo:</b> Cảm thông bi kịch tinh thần, trân trọng khát vọng sống có ý nghĩa, tố cáo xã hội bất công.</p>    
+    <p><b>Nghệ thuật:</b></p>    
+    <ul>    
+      <li>Nhân vật tâm lý sâu sắc.</li>    
+      <li>Kể chuyện chân thực, sắc lạnh nhưng nhân văn.</li>    
+      <li>Ngôn ngữ gần gũi, linh hoạt giữa tự sự và phân tích.</li>    
+    </ul>    
+  </div>      <!-- Kết luận -->      <div class="swiper-slide">    
+    <h2>4. Kết luận</h2>    
+    <p class="conclusion">    
+      <em>Đời thừa</em> để lại dấu ấn về hình tượng trí thức đầy bi kịch – nhân vật Hộ.<br>    
+      Nam Cao vừa phơi bày xã hội ngột ngạt, vừa khẳng định khát vọng sống và sáng tạo chân chính.<br>    
+      Tác phẩm giúp chúng ta hiểu và trân trọng hơn giá trị nhân đạo của văn học Nam Cao.<br><br>    
+      <b>Xin cảm ơn thầy cô và các bạn!</b>    
+    </p>    
+  </div>    
+</div>    <!-- Nút điều khiển -->    <div class="swiper-button-next"></div>    
+<div class="swiper-button-prev"></div>    
+<div class="swiper-pagination"></div>    </div>    <script>    
+    // Ẩn intro-title và hiện intro-iphone sau 3 giây    
+    setTimeout(() => {    
+      document.querySelector(".intro-title").classList.add("hidden");    
+      document.querySelector(".intro-iphone").classList.add("visible");    
+    }, 3000);    // Chuyển sang Swiper sau khi hoàn tất hiệu ứng iPhone    
+setTimeout(() => {    
+  document.querySelector(".intro-iphone").style.display = "none";    
+  document.querySelector(".swiper").classList.add("show");    
+
+  const swiper = new Swiper('.swiper', {    
+    effect: 'cube',    
+    cubeEffect: { shadow: true, slideShadows: true, shadowOffset: 20, shadowScale: 0.94 },    
+    speed: 1000,    
+    navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },    
+    pagination: { el: '.swiper-pagination', clickable: true },    
+    keyboard: { enabled: true },    
+    mousewheel: { enabled: true },    
+  });    
+}, 9000);
+
+</script>  </body>
+
+</html>    
