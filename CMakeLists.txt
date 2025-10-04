@@ -1,11 +1,14 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.10)
 
-project(mylib C)
+project(overlaydemo_hwclayer)
 
-set(CMAKE_C_STANDARD 99)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_library(mylib SHARED mylib.c)
+add_executable(overlaydemo_hwclayer overlaydemo_hwclayer.cpp)
 
-# Link với log (bắt buộc để dùng __android_log_print)
-find_library(log-lib log)
-target_link_libraries(mylib ${log-lib})
+# Link Android system libraries
+target_link_libraries(overlaydemo_hwclayer
+    log
+    android
+)
