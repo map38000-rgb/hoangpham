@@ -12,45 +12,60 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Ghidra source
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
           submodules: true
 
-      - name: Set up Java 17 (required by Ghidra)
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v3
+      - name: Detect Ghidra root path
+        id: detect
+        run: |
+          if [ -f settings.gradle ]; then
+            echo "root=." >> $GITHUB_OUTPUT
+          elif [ -f Ghidra/settings.gradle ]; then
+            echo "root=Ghidra" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Không tìm thấy settings.gradle"
+            ls -R | head -50
+            exit 1
+          fi
 
       - name: Disable Windows-only Debugger modules
         run: |
-          echo ">>> Disabling Windows-only Debugger modules..."
-          sed -i '/Debugger-agent-dbgeng/d' Ghidra/settings.gradle
-          sed -i '/Debugger-agent-dbgmodel/d' Ghidra/settings.gradle
-          sed -i '/Debugger-agent-dbgmodel-dbgeng/d' Ghidra/settings.gradle
+          GHIDRA_ROOT="${{ steps.detect.outputs.root }}"
+          echo "Ghidra root detected: $GHIDRA_ROOT"
+          sed -i '/Debugger-agent-dbgeng/d' "$GHIDRA_ROOT/settings.gradle" || true
+          sed -i '/Debugger-agent-dbgmodel/d' "$GHIDRA_ROOT/settings.gradle" || true
+          sed -i '/Debugger-agent-dbgmodel-dbgeng/d' "$GHIDRA_ROOT/settings.gradle" || true
 
       - name: Build ARM64 Decompiler only
         run: |
-          echo ">>> Building Ghidra ARM64 Decompiler..."
-          ./gradlew --no-daemon --parallel :Ghidra:Processors:ARM:build
+          GHIDRA_ROOT="${{ steps.detect.outputs.root }}"
+          cd "$GHIDRA_ROOT"
+          ./gradlew --no-daemon --parallel :Processors:ARM:build
 
-      - name: Build SLEIGH ARM64 decompiler processor
+      - name: Build ARM64 sleigh
         run: |
-          echo ">>> Building SLEIGH ARM64 Processor..."
-          ./gradlew --no-daemon :Ghidra:Processors:ARM:sleighCompile
+          GHIDRA_ROOT="${{ steps.detect.outputs.root }}"
+          cd "$GHIDRA_ROOT"
+          ./gradlew --no-daemon :Processors:ARM:sleighCompile
 
-      - name: Assemble Ghidra ARM64 modules
+      - name: Assemble ARM64
         run: |
-          ./gradlew --no-daemon :Ghidra:Processors:ARM:assemble
+          GHIDRA_ROOT="${{ steps.detect.outputs.root }}"
+          cd "$GHIDRA_ROOT"
+          ./gradlew --no-daemon :Processors:ARM:assemble
 
-      - name: Upload build artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ghidra-arm64-processor
+          name: ghidra-arm64-build
           path: |
-            Ghidra/Processors/ARM/build/distributions/
-            Ghidra/Processors/ARM/build/libs/
+            **/Processors/ARM/build/distributions/**
+            **/Processors/ARM/build/libs/**
