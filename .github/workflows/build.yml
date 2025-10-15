@@ -6,50 +6,45 @@ on:
     branches: [ main ]
 
 jobs:
-  build-arm64:
+  build:
     runs-on: ubuntu-latest
-    name: Build Decompiler for ARM64 (Linux)
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-
-      - name: Set up QEMU and cross-compile toolchain
-        uses: docker/setup-qemu-action@v3
         with:
-          platforms: arm64
+          repository: NationalSecurityAgency/ghidra
+          submodules: recursive
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
-      - name: Install dependencies
+      - name: Install build dependencies
         run: |
-          sudo apt update
-          sudo apt install -y build-essential cmake git gradle gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            openjdk-21-jdk unzip
 
-      - name: Clone Ghidra source
+      - name: Verify Java version
+        run: java -version
+
+      - name: Prepare local Maven repo
         run: |
-          git clone https://github.com/NationalSecurityAgency/ghidra.git
-          cd ghidra
-          git submodule update --init --recursive
+          mkdir -p ghidra_dependencies/flatRepo
+          echo "flatRepo=ghidra_dependencies/flatRepo" > ghidra.repos.config
 
       - name: Build native ARM64 decompiler
-        working-directory: ghidra
         run: |
           export CC=aarch64-linux-gnu-gcc
           export CXX=aarch64-linux-gnu-g++
-          ./gradlew buildNatives_linux_arm_64 --stacktrace
+          ./gradlew --no-daemon buildNatives_linux_arm_64 --stacktrace --info
 
-      - name: List output
-        working-directory: ghidra
+      - name: Package build artifacts
         run: |
-          find ./ -type f -name "decompile" || echo "No binary found"
+          mkdir -p output
+          cp -r build/os/linux_arm_64 output/
+          ls -R output
 
-      - name: Upload artifact
+      - name: Upload decompiler binary
         uses: actions/upload-artifact@v4
         with:
-          name: ghidra-decompiler-arm64
-          path: ghidra/build/os/linux_arm_64/decompile
+          name: ghidra-arm64-decompiler
+          path: output/
