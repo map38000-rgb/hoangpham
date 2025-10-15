@@ -1,52 +1,56 @@
-name: Build Ghidra Decompiler ARM64
+name: Build Ghidra ARM64 Decompiler
 
 on:
-  workflow_dispatch:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout full Ghidra source
+      - name: Checkout Ghidra source
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set up Java 17 (required by Ghidra)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Disable Windows-only Debugger modules
         run: |
-          git clone --recursive https://github.com/NationalSecurityAgency/ghidra.git
-          cd ghidra
-          git submodule update --init --recursive
+          echo ">>> Disabling Windows-only Debugger modules..."
+          sed -i '/Debugger-agent-dbgeng/d' Ghidra/settings.gradle
+          sed -i '/Debugger-agent-dbgmodel/d' Ghidra/settings.gradle
+          sed -i '/Debugger-agent-dbgmodel-dbgeng/d' Ghidra/settings.gradle
 
-      - name: Install dependencies
+      - name: Build ARM64 Decompiler only
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake git \
-            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            openjdk-21-jdk unzip
+          echo ">>> Building Ghidra ARM64 Decompiler..."
+          ./gradlew --no-daemon --parallel :Ghidra:Processors:ARM:build
 
-      - name: Verify Java
-        run: java -version
-
-      - name: Prepare local Maven repo
-        working-directory: ghidra
+      - name: Build SLEIGH ARM64 decompiler processor
         run: |
-          mkdir -p ghidra_dependencies/flatRepo
-          echo "flatRepo=ghidra_dependencies/flatRepo" > ghidra.repos.config
+          echo ">>> Building SLEIGH ARM64 Processor..."
+          ./gradlew --no-daemon :Ghidra:Processors:ARM:sleighCompile
 
-      - name: Build native ARM64 Decompiler
-        working-directory: ghidra
+      - name: Assemble Ghidra ARM64 modules
         run: |
-          export CC=aarch64-linux-gnu-gcc
-          export CXX=aarch64-linux-gnu-g++
-          ./gradlew --no-daemon buildNatives_linux_arm_64 --stacktrace --info
+          ./gradlew --no-daemon :Ghidra:Processors:ARM:assemble
 
-      - name: List build outputs
-        working-directory: ghidra
-        run: |
-          echo "✅ Build complete. Listing decompiler files:"
-          ls -R build/os/linux_arm_64 || true
-
-      - name: Upload ARM64 Decompiler
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ghidra-decompiler-arm64
-          path: ghidra/build/os/linux_arm_64/
+          name: ghidra-arm64-processor
+          path: |
+            Ghidra/Processors/ARM/build/distributions/
+            Ghidra/Processors/ARM/build/libs/
