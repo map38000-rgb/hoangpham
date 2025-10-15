@@ -1,4 +1,4 @@
-name: Build Full Ghidra ARM64 (Decompiler + Core)
+name: Build Ghidra Decompiler ARM64
 
 on:
   workflow_dispatch:
@@ -16,17 +16,15 @@ jobs:
           cd ghidra
           git submodule update --init --recursive
 
-      - name: Install build dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake git \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
             openjdk-21-jdk unzip
 
-      - name: Verify Java and Gradle
-        run: |
-          java -version
-          ./ghidra/support/gradle/bin/gradle -v || true
+      - name: Verify Java
+        run: java -version
 
       - name: Prepare local Maven repo
         working-directory: ghidra
@@ -34,29 +32,21 @@ jobs:
           mkdir -p ghidra_dependencies/flatRepo
           echo "flatRepo=ghidra_dependencies/flatRepo" > ghidra.repos.config
 
-      - name: Build native ARM64 decompiler
+      - name: Build native ARM64 Decompiler
         working-directory: ghidra
         run: |
           export CC=aarch64-linux-gnu-gcc
           export CXX=aarch64-linux-gnu-g++
           ./gradlew --no-daemon buildNatives_linux_arm_64 --stacktrace --info
 
-      - name: Build full Ghidra distribution
-        working-directory: ghidra
-        run: |
-          ./gradlew --no-daemon buildGhidra --stacktrace --info
-
       - name: List build outputs
         working-directory: ghidra
         run: |
-          echo "✅ Listing final build artifacts:"
-          ls -R build/dist || true
+          echo "✅ Build complete. Listing decompiler files:"
           ls -R build/os/linux_arm_64 || true
 
-      - name: Upload build artifacts
+      - name: Upload ARM64 Decompiler
         uses: actions/upload-artifact@v4
         with:
-          name: ghidra-full-arm64
-          path: |
-            ghidra/build/dist/
-            ghidra/build/os/linux_arm_64/
+          name: ghidra-decompiler-arm64
+          path: ghidra/build/os/linux_arm_64/
