@@ -1,4 +1,4 @@
-name: Build Ghidra ARM64 Decompiler
+name: Build Full Ghidra ARM64 (Decompiler + Core)
 
 on:
   workflow_dispatch:
@@ -10,11 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-        with:
-          repository: NationalSecurityAgency/ghidra
-          submodules: recursive
+      - name: Checkout full Ghidra source
+        run: |
+          git clone --recursive https://github.com/NationalSecurityAgency/ghidra.git
+          cd ghidra
+          git submodule update --init --recursive
 
       - name: Install build dependencies
         run: |
@@ -23,28 +23,40 @@ jobs:
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
             openjdk-21-jdk unzip
 
-      - name: Verify Java version
-        run: java -version
+      - name: Verify Java and Gradle
+        run: |
+          java -version
+          ./ghidra/support/gradle/bin/gradle -v || true
 
       - name: Prepare local Maven repo
+        working-directory: ghidra
         run: |
           mkdir -p ghidra_dependencies/flatRepo
           echo "flatRepo=ghidra_dependencies/flatRepo" > ghidra.repos.config
 
       - name: Build native ARM64 decompiler
+        working-directory: ghidra
         run: |
           export CC=aarch64-linux-gnu-gcc
           export CXX=aarch64-linux-gnu-g++
           ./gradlew --no-daemon buildNatives_linux_arm_64 --stacktrace --info
 
-      - name: Package build artifacts
+      - name: Build full Ghidra distribution
+        working-directory: ghidra
         run: |
-          mkdir -p output
-          cp -r build/os/linux_arm_64 output/
-          ls -R output
+          ./gradlew --no-daemon buildGhidra --stacktrace --info
 
-      - name: Upload decompiler binary
+      - name: List build outputs
+        working-directory: ghidra
+        run: |
+          echo "✅ Listing final build artifacts:"
+          ls -R build/dist || true
+          ls -R build/os/linux_arm_64 || true
+
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ghidra-arm64-decompiler
-          path: output/
+          name: ghidra-full-arm64
+          path: |
+            ghidra/build/dist/
+            ghidra/build/os/linux_arm_64/
