@@ -267,8 +267,8 @@ test: decomp_test_dbg
 ghidra_dbg:	$(GHIDRA_DBG_OBJS)
 	$(CXX) $(DBG_CXXFLAGS) $(ADDITIONAL_FLAGS) $(MAKE_STATIC) $(ARCH_TYPE) -o ghidra_dbg $(GHIDRA_DBG_OBJS)
 
-ghidra_opt:	$(GHIDRA_OPT_OBJS)
-	$(CXX) $(OPT_CXXFLAGS) $(ADDITIONAL_FLAGS) $(MAKE_STATIC) $(ARCH_TYPE)  -o ghidra_opt $(GHIDRA_OPT_OBJS)
+decompile_arm64: $(GHIDRA_OPT_OBJS)
+	aarch64-linux-gnu-g++ -O2 -Wall -Wno-sign-compare -o decompile_arm64 $(GHIDRA_OPT_OBJS) -lz
 
 sleigh_dbg:	$(SLEIGH_DBG_OBJS)
 	$(CXX) $(DBG_CXXFLAGS) $(ADDITIONAL_FLAGS) $(MAKE_STATIC) $(ARCH_TYPE) -o sleigh_dbg $(SLEIGH_DBG_OBJS) $(LNK)
