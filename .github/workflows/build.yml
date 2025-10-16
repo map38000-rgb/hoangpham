@@ -48,9 +48,9 @@ jobs:
           ls -lh build/decompile
           file build/decompile
 
-      # Tải artifact lên (tùy chọn)
+      # Tải artifact lên với phiên bản mới
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: arm64-decompile
           path: build/decompile
