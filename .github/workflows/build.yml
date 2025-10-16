@@ -1,71 +1,56 @@
-name: Build Ghidra ARM64 Decompiler
+name: Build ARM64 Decompiler
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
-    branches: [ main ]
-  workflow_dispatch:
+    branches:
+      - main
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      # Tự động tải mã nguồn từ repository chính thức của Ghidra
+      - name: Checkout Ghidra source code
+        uses: actions/checkout@v3
         with:
-          submodules: true
+          repository: NationalSecurityAgency/ghidra
+          ref: master  # Sử dụng branch master, thay đổi nếu cần phiên bản cụ thể
+          path: ghidra-source
 
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
+      # Cài đặt Java 21 (yêu cầu của Ghidra 11.4.2)
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
         with:
-          distribution: temurin
-          java-version: 17
+          java-version: '21'
+          distribution: 'temurin'
 
-      - name: Detect Ghidra root path
-        id: detect
+      # Cài đặt công cụ build và cross-compiler cho ARM64
+      - name: Install dependencies
         run: |
-          if [ -f settings.gradle ]; then
-            echo "root=." >> $GITHUB_OUTPUT
-          elif [ -f Ghidra/settings.gradle ]; then
-            echo "root=Ghidra" >> $GITHUB_OUTPUT
-          else
-            echo "❌ Không tìm thấy settings.gradle"
-            ls -R | head -50
-            exit 1
-          fi
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
-      - name: Disable Windows-only Debugger modules
+      # Build decompiler
+      - name: Build ARM64 decompiler
         run: |
-          GHIDRA_ROOT="${{ steps.detect.outputs.root }}"
-          echo "Ghidra root detected: $GHIDRA_ROOT"
-          sed -i '/Debugger-agent-dbgeng/d' "$GHIDRA_ROOT/settings.gradle" || true
-          sed -i '/Debugger-agent-dbgmodel/d' "$GHIDRA_ROOT/settings.gradle" || true
-          sed -i '/Debugger-agent-dbgmodel-dbgeng/d' "$GHIDRA_ROOT/settings.gradle" || true
+          mkdir -p build bin
+          cd ghidra-source/Ghidra/Features/Decompiler/src/decompile/cpp
+          make CC=aarch64-linux-gnu-gcc CXX=aarch64-linux-gnu-g++ ARCH=arm64
+          mv decompile ../../../build/
 
-      - name: Build ARM64 Decompiler only
+      # Kiểm tra kết quả
+      - name: Verify build
         run: |
-          GHIDRA_ROOT="${{ steps.detect.outputs.root }}"
-          cd "$GHIDRA_ROOT"
-          ./gradlew --no-daemon --parallel :Processors:ARM:build
+          ls -lh build/decompile
+          file build/decompile
 
-      - name: Build ARM64 sleigh
-        run: |
-          GHIDRA_ROOT="${{ steps.detect.outputs.root }}"
-          cd "$GHIDRA_ROOT"
-          ./gradlew --no-daemon :Processors:ARM:sleighCompile
-
-      - name: Assemble ARM64
-        run: |
-          GHIDRA_ROOT="${{ steps.detect.outputs.root }}"
-          cd "$GHIDRA_ROOT"
-          ./gradlew --no-daemon :Processors:ARM:assemble
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      # Tải artifact lên (tùy chọn)
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
         with:
-          name: ghidra-arm64-build
-          path: |
-            **/Processors/ARM/build/distributions/**
-            **/Processors/ARM/build/libs/**
+          name: arm64-decompile
+          path: build/decompile
