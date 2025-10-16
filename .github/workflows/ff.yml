@@ -1,0 +1,53 @@
+name: Build ARM64 Decompiler
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      # Cài đặt môi trường cơ bản
+      - name: Set up environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-21-jdk gradle
+
+      # Tự động clone repository Ghidra với submodules
+      - name: Clone Ghidra source code
+        run: |
+          git clone --recurse-submodules https://github.com/NationalSecurityAgency/ghidra.git
+          cd ghidra
+
+      # Chạy init với fetchDependencies
+      - name: Initialize Ghidra
+        run: |
+          cd ghidra
+          ./gradlew --init-script gradle/support/fetchDependencies.gradle init
+
+      # Build cho linux_arm_64
+      - name: Build Ghidra for linux_arm_64
+        run: |
+          cd ghidra
+          ./gradlew build -PtargetPlatform=linux_arm_64
+
+      # Tạo thư mục và di chuyển artifact
+      - name: Prepare artifact
+        run: |
+          cd ghidra/build/dist
+          mkdir -p artifacts
+          cp -r * artifacts/
+          ls -lh artifacts/
+
+      # Upload artifact
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghidra-linux-arm64
+          path: ghidra/build/dist/artifacts/
