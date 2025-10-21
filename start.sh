@@ -49,7 +49,7 @@ enable_start_docker() {
 }
 
 one_time_cleanup() {
-  local marker="/home/$USER/.cleanup_done"
+  local marker="$HOME/.cleanup_done"
   if [ ! -f "$marker" ]; then
     info "Performing one-time cleanup in /home/$USER"
     sudo rm -rf "/home/$USER/.gradle/"* "/home/$USER/.emu/"* || true
