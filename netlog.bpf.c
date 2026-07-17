@@ -1,4 +1,3 @@
-
 #include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
@@ -6,11 +5,11 @@
 
 char LICENSE[] SEC("license") = "Dual BSD/GPL";
 
-/* Hook vào hàm tcp_connect của kernel */
+/* Hook vào hàm tcp_connect của kernel - Dùng định nghĩa hàm C chuẩn */
 SEC("kprobe/tcp_connect")
-int BPF_KPROBE_PROTOTYPE(tcp_connect, struct pt_regs *ctx)
+int BPF_KPROBE_PROTOTYPE_FIX(struct pt_regs *ctx)
 {
-    /* Lấy tham số đầu tiên của hàm tcp_connect (chính là struct sock *sk) */
+    /* Lấy tham số đầu tiên của hàm tcp_connect (chính là struct sock *sk) dựa trên cấu trúc của ctx */
     struct sock *sk = (struct sock *)PT_REGS_PARM1_CORE(ctx);
     if (!sk)
         return 0;
