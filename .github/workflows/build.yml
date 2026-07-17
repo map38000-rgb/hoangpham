@@ -5,7 +5,7 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
-  workflow_dispatch: # Cho phép bấm nút chạy thủ công trên GitHub
+  workflow_dispatch:
 
 jobs:
   build-ebpf:
@@ -15,7 +15,7 @@ jobs:
     - name: Checkout mã nguồn
       uses: actions/checkout@v4
 
-    - name: Cài đặt các công cụ và thư viện biên dịch chéo
+    - name: Cài đặt các công cụ biên dịch chéo
       run: |
         sudo apt-get update -y
         sudo apt-get install -y -f \
@@ -26,7 +26,7 @@ jobs:
           binutils-aarch64-linux-gnu \
           libc6-dev-arm64-cross
 
-    - name: Tạo thư mục chứa sản phẩm đầu ra (Artifacts)
+    - name: Tạo thư mục build
       run: mkdir -p build
 
     - name: Biên dịch eBPF cho x86_64
@@ -34,7 +34,6 @@ jobs:
         clang -g -O2 \
           -target bpf \
           -D__TARGET_ARCH_x86 \
-          -D__bpf__ \
           -I . \
           -c netlog.bpf.c \
           -o build/netlog.bpf.x86_64.o
@@ -44,13 +43,12 @@ jobs:
         clang -g -O2 \
           -target bpf \
           -D__TARGET_ARCH_arm64 \
-          -D__bpf__ \
           -I . \
           -I /usr/aarch64-linux-gnu/include \
           -c netlog.bpf.c \
           -o build/netlog.bpf.arm64.o
 
-    - name: Lưu trữ sản phẩm biên dịch (Upload Artifacts)
+    - name: Lưu trữ sản phẩm biên dịch
       uses: actions/upload-artifact@v4
       with:
         name: ebpf-objects
