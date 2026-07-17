@@ -1,63 +1,22 @@
-name: Compile eBPF for x86_64 and arm64
-
-on:
-  push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
-
-jobs:
-  build-ebpf:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout mã nguồn
-      uses: actions/checkout@v4
-
-    - name: Cài đặt Clang, LLVM và các công cụ biên dịch chéo
-      run: |
-        sudo apt-get update -y
-        # Cài đặt các gói cơ bản và ép hệ thống tự giải quyết dependency (-f)
-        sudo apt-get install -y -f \
-          clang \
-          llvm \
-          libbpf-dev \
-          gcc-multilib \
-          binutils-aarch64-linux-gnu \
-          libc6-dev-arm64-cross
-        
-        # Cài đặt gcc-aarch64-linux-gnu độc lập để tránh kéo theo các dependency lỗi thời
-        sudo apt-get install -y gcc-aarch64-linux-gnu || echo "Tiếp tục biên dịch với Clang nội tại"
-
-    - name: Tạo thư mục chứa sản phẩm đầu ra (Artifacts)
-      run: mkdir -p build
-
     # Biên dịch cho x86_64
     - name: Biên dịch eBPF cho x86_64
       run: |
         clang -g -O2 \
           -target bpf \
           -D__TARGET_ARCH_x86 \
+          -D__bpf__ \
           -I . \
           -c netlog.bpf.c \
           -o build/netlog.bpf.x86_64.o
 
-    # Biên dịch cho arm64 
-    # Thay vì phụ thuộc vào gcc-aarch64, ta trỏ trực tiếp đường dẫn sysroot tới thư mục của libc6-dev-arm64-cross
+    # Biên dịch cho arm64
     - name: Biên dịch eBPF cho arm64
       run: |
         clang -g -O2 \
           -target bpf \
           -D__TARGET_ARCH_arm64 \
+          -D__bpf__ \
           -I . \
           -I /usr/aarch64-linux-gnu/include \
           -c netlog.bpf.c \
           -o build/netlog.bpf.arm64.o
-
-    # Upload file .o đã biên dịch lên GitHub Artifacts
-    - name: Lưu trữ sản phẩm biên dịch
-      uses: actions/upload-artifact@v4
-      with:
-        name: ebpf-objects
-        path: build/
