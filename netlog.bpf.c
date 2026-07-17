@@ -5,14 +5,18 @@
 char LICENSE[] SEC("license") = "Dual BSD/GPL";
 
 /* 
- * Sử dụng fentry với cú pháp nguyên thủy (raw context).
- * Không cần include bpf_tracing.h, loại bỏ hoàn toàn lỗi macro.
+ * Kprobe tương thích tối đa cho kernel Android ARM64
  */
-SEC("fentry/tcp_connect")
-int bpf_prog_tcp_connect(__u64 *ctx)
+SEC("kprobe/tcp_connect")
+int bpf_prog_tcp_connect(void *ctx)
 {
-    /* Tham số thứ nhất của hàm tcp_connect(struct sock *sk) chính là ctx[0] */
-    struct sock *sk = (struct sock *)ctx[0];
+    /* 
+     * [BÍ QUYẾT ARM64] 
+     * Trên ARM64, struct pt_regs bắt đầu bằng mảng thanh ghi (u64 regs[31]).
+     * Thanh ghi X0 (tham số thứ nhất) nằm ở vị trí bộ nhớ đầu tiên.
+     * Ép kiểu ctx về con trỏ (u64 *) và lấy phần tử [0] để lấy X0 (chính là struct sock *).
+     */
+    struct sock *sk = (struct sock *)(((u64 *)ctx)[0]);
     if (!sk)
         return 0;
 
@@ -20,17 +24,17 @@ int bpf_prog_tcp_connect(__u64 *ctx)
     char comm[16];
     u32 saddr = 0, daddr = 0;
 
-    /* Lấy PID (32-bit cao của bpf_get_current_pid_tgid) */
+    /* Lấy PID (tiến trình Android) */
     pid = bpf_get_current_pid_tgid() >> 32;
 
-    /* Lấy tên tiến trình */
+    /* Lấy tên Package/App */
     bpf_get_current_comm(&comm, sizeof(comm));
 
-    /* Đọc an toàn địa chỉ IP bằng CO-RE */
+    /* Sử dụng CO-RE để đọc dữ liệu an toàn trên các phiên bản Kernel Android khác nhau */
     BPF_CORE_READ_INTO(&saddr, sk, __sk_common.skc_rcv_saddr);
     BPF_CORE_READ_INTO(&daddr, sk, __sk_common.skc_daddr);
 
-    /* In log ra trace_pipe */
+    /* In log ra trace_pipe của Android */
     bpf_printk("[NetLog] PID: %d | App: %s", pid, comm);
     bpf_printk("[NetLog] Src: %pI4 -> Dst: %pI4", &saddr, &daddr);
 
