@@ -5,26 +5,12 @@
 char LICENSE[] SEC("license") = "Dual BSD/GPL";
 
 /* 
- * Tự định nghĩa cách lấy tham số đầu tiên (RDI trên x86_64, regs[0] trên ARM64)
- * Tránh sử dụng bpf_tracing.h của hệ thống để không bị xung đột struct pt_regs
+ * Sử dụng fentry thay cho kprobe. 
+ * fentry nhận tham số giống hệt hàm tcp_connect trong kernel: tcp_connect(struct sock *sk)
  */
-static __always_inline unsigned long get_first_param(struct pt_regs *ctx) {
-#if defined(__TARGET_ARCH_x86)
-    // Trên x86_64, tham số 1 nằm ở thanh ghi di (hoặc rdi)
-    return ctx->di;
-#elif defined(__TARGET_ARCH_arm64)
-    // Trên arm64, tham số 1 nằm ở regs[0]
-    return ctx->regs[0];
-#else
-    return 0;
-#endif
-}
-
-SEC("kprobe/tcp_connect")
-int BPF_KPROBE_PROTOTYPE_FIX(struct pt_regs *ctx)
+SEC("fentry/tcp_connect")
+int BPF_PROG(tcp_connect, struct sock *sk)
 {
-    // Lấy con trỏ struct sock *sk từ tham số đầu tiên của hàm tcp_connect
-    struct sock *sk = (struct sock *)get_first_param(ctx);
     if (!sk)
         return 0;
 
