@@ -1,153 +1,58 @@
-name: Build camera_dobby_hook.so (Android)
+name: Compile eBPF for x86_64 and arm64
 
 on:
   push:
-    branches: [ main, master ]
-  workflow_dispatch:
-
-env:
-  NDK_VERSION: r25b  # thay đổi nếu muốn (r23b, r25c, ...)
-  DROID_PLATFORM_ARM64: 21
-  DROID_PLATFORM_ARM32: 16
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Cho phép bấm chạy thủ công trên giao diện GitHub
 
 jobs:
-  build:
+  build-ebpf:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        abi: [ arm64-v8a, armeabi-v7a ]
-    outputs:
-      artifact-path: ${{ steps.outputs_artifact_path.outputs.path }}
 
     steps:
-    - name: Checkout repository
+    - name: Checkout mã nguồn
       uses: actions/checkout@v4
 
-    - name: Install required packages
+    - name: Cài đặt Clang, LLVM và các công cụ biên dịch chéo
       run: |
-        sudo apt-get update -y
-        sudo apt-get install -y unzip wget build-essential cmake python3
+        sudo apt-get update
+        sudo apt-get install -y \
+          clang \
+          llvm \
+          libbpf-dev \
+          gcc-multilib \
+          gcc-aarch64-linux-gnu \
+          libc6-dev-arm64-cross
 
-    - name: Download & extract Android NDK
-      id: download_ndk
+    - name: Tạo thư mục chứa sản phẩm đầu ra (Artifacts)
+      run: mkdir -p build
+
+    # Biên dịch cho x86_64
+    - name: Biên dịch eBPF cho x86_64
       run: |
-        set -e
-        NDK="${{ env.NDK_VERSION }}"
-        # URL for linux NDK (may be adjusted if you use different version naming)
-        # r25b example: android-ndk-r25b-linux.zip
-        ZIP="android-ndk-${NDK}-linux.zip"
-        URL="https://dl.google.com/android/repository/${ZIP}"
-        echo "Downloading NDK from: $URL"
-        wget -q --show-progress "$URL" -O "$ZIP"
-        unzip -q "$ZIP" -d $HOME
-        # extracted folder name: android-ndk-r25b
-        NDK_DIR="$HOME/android-ndk-${NDK}"
-        echo "NDK_DIR=${NDK_DIR}" >> $GITHUB_ENV
-        ls -la "$NDK_DIR" || true
+        clang -g -O2 \
+          -target bpf \
+          -D__TARGET_ARCH_x86 \
+          -I . \
+          -c netlog.bpf.c \
+          -o build/netlog.bpf.x86_64.o
 
-    - name: Setup toolchain vars
-      id: set_toolchain
+    # Biên dịch cho arm64 (Sử dụng thêm các đường dẫn header của kiến trúc ARM64 cross-compile)
+    - name: Biên dịch eBPF cho arm64
       run: |
-        if [[ "${{ matrix.abi }}" == "arm64-v8a" ]]; then
-          export TRIPLE_PREFIX="aarch64-linux-android"
-          export API=${DROID_PLATFORM_ARM64}
-          export ABI="arm64-v8a"
-        else
-          export TRIPLE_PREFIX="armv7a-linux-androideabi"
-          export API=${DROID_PLATFORM_ARM32}
-          export ABI="armeabi-v7a"
-        fi
-        export TOOLCHAIN=${NDK_DIR}/toolchains/llvm/prebuilt/linux-x86_64/bin
-        echo "TOOLCHAIN=$TOOLCHAIN" >> $GITHUB_ENV
-        echo "TRIPLE_PREFIX=$TRIPLE_PREFIX" >> $GITHUB_ENV
-        echo "API=$API" >> $GITHUB_ENV
-        echo "ABI=$ABI" >> $GITHUB_ENV
+        clang -g -O2 \
+          -target bpf \
+          -D__TARGET_ARCH_arm64 \
+          -I . \
+          -I /usr/aarch64-linux-gnu/include \
+          -c netlog.bpf.c \
+          -o build/netlog.bpf.arm64.o
 
-    - name: Build Dobby (if dobby/ exists)
-      if: ${{ exists('dobby') }}
-      run: |
-        set -e
-        echo "Building Dobby for ABI=${ABI}"
-        mkdir -p dobby/build-${ABI}
-        pushd dobby/build-${ABI}
-        cmake .. \
-          -DCMAKE_TOOLCHAIN_FILE=${NDK_DIR}/build/cmake/android.toolchain.cmake \
-          -DANDROID_ABI=${ABI} \
-          -DANDROID_PLATFORM=android-${API} \
-          -DCMAKE_BUILD_TYPE=Release
-        make -j$(nproc)
-        # Copy built static lib if present
-        mkdir -p ${GITHUB_WORKSPACE}/build/dobby/${ABI}
-        # try multiple possible outputs
-        if [ -f libdobby.a ]; then
-          cp libdobby.a ${GITHUB_WORKSPACE}/build/dobby/${ABI}/libdobby.a
-        else
-          find . -type f -name "libdobby.*" -exec cp {} ${GITHUB_WORKSPACE}/build/dobby/${ABI}/ \;
-        fi
-        popd
-
-    - name: Determine compiler and build camera .so
-      id: build_camera
-      run: |
-        set -e
-        echo "ABI=${ABI}, TOOLCHAIN=${TOOLCHAIN}, TRIPLE=${TRIPLE_PREFIX}, API=${API}"
-        # determine clang wrapper
-        if [[ "${ABI}" == "arm64-v8a" ]]; then
-          CLANG="${TOOLCHAIN}/${TRIPLE_PREFIX}${API}-clang"
-          CLANGPP="${TOOLCHAIN}/${TRIPLE_PREFIX}${API}-clang++"
-        else
-          # armeabi-v7a -> armv7a-linux-androideabi16-clang
-          CLANG="${TOOLCHAIN}/${TRIPLE_PREFIX}${API}-clang"
-          CLANGPP="${TOOLCHAIN}/${TRIPLE_PREFIX}${API}-clang++"
-        fi
-        echo "Using clang: $CLANG"
-        if [ ! -x "$CLANG" ]; then
-          echo "ERROR: clang not found at $CLANG"
-          exit 1
-        fi
-
-        BUILD_DIR=${GITHUB_WORKSPACE}/build/output/${ABI}
-        mkdir -p ${BUILD_DIR}
-
-        # include path for dobby header if exists
-        DOBBY_INC=""
-        DOBBY_LIB=""
-        if [ -d "${GITHUB_WORKSPACE}/dobby" ]; then
-          if [ -f "${GITHUB_WORKSPACE}/build/dobby/${ABI}/libdobby.a" ]; then
-            DOBBY_LIB="${GITHUB_WORKSPACE}/build/dobby/${ABI}/libdobby.a"
-          elif [ -f "${GITHUB_WORKSPACE}/dobby/libs/${ABI}/libdobby.a" ]; then
-            DOBBY_LIB="${GITHUB_WORKSPACE}/dobby/libs/${ABI}/libdobby.a"
-          fi
-          if [ -f "${GITHUB_WORKSPACE}/dobby/include/dobby.h" ]; then
-            DOBBY_INC="-I${GITHUB_WORKSPACE}/dobby/include"
-          fi
-        fi
-
-        SRC=${GITHUB_WORKSPACE}/camera_dobby_hook.c
-        if [ ! -f "$SRC" ]; then
-          echo "ERROR: source camera_dobby_hook.c not found at repo root"
-          exit 1
-        fi
-
-        # compile flags
-        CFLAGS="-fPIC -O2 -D_GNU_SOURCE"
-        LDFLAGS="-shared -Wl,--no-undefined -ldl"
-
-        # build command
-        if [ -n "$DOBBY_LIB" ]; then
-          echo "Linking with libdobby: $DOBBY_LIB"
-          $CLANG $CFLAGS $DOBBY_INC $SRC $DOBBY_LIB -o ${BUILD_DIR}/camera_dobby_hook.so $LDFLAGS
-        else
-          # If no dobby lib available, attempt to link without it (user must supply lib later)
-          echo "No libdobby found — building without linking it. You may need to provide libdobby.a to link later."
-          $CLANG $CFLAGS $DOBBY_INC $SRC -o ${BUILD_DIR}/camera_dobby_hook.so $LDFLAGS
-        fi
-
-        ls -la ${BUILD_DIR}
-        echo "::set-output name=path::${BUILD_DIR}"
-
-    - name: Upload artifact (.so)
+    # Upload file .o đã biên dịch lên GitHub Artifacts để bạn tải về
+    - name: Lưu trữ sản phẩm biên dịch
       uses: actions/upload-artifact@v4
       with:
-        name: camera_dobby_hook-${{ matrix.abi }}
-        path: build/output/${{ matrix.abi }}/camera_dobby_hook.so
+        name: ebpf-objects
+        path: build/
