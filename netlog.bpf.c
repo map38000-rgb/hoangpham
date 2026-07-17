@@ -5,12 +5,14 @@
 char LICENSE[] SEC("license") = "Dual BSD/GPL";
 
 /* 
- * Sử dụng fentry thay cho kprobe. 
- * fentry nhận tham số giống hệt hàm tcp_connect trong kernel: tcp_connect(struct sock *sk)
+ * Sử dụng fentry với cú pháp nguyên thủy (raw context).
+ * Không cần include bpf_tracing.h, loại bỏ hoàn toàn lỗi macro.
  */
 SEC("fentry/tcp_connect")
-int BPF_PROG(tcp_connect, struct sock *sk)
+int bpf_prog_tcp_connect(__u64 *ctx)
 {
+    /* Tham số thứ nhất của hàm tcp_connect(struct sock *sk) chính là ctx[0] */
+    struct sock *sk = (struct sock *)ctx[0];
     if (!sk)
         return 0;
 
@@ -18,7 +20,7 @@ int BPF_PROG(tcp_connect, struct sock *sk)
     char comm[16];
     u32 saddr = 0, daddr = 0;
 
-    /* Lấy PID (32-bit cao) */
+    /* Lấy PID (32-bit cao của bpf_get_current_pid_tgid) */
     pid = bpf_get_current_pid_tgid() >> 32;
 
     /* Lấy tên tiến trình */
