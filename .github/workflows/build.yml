@@ -1,4 +1,34 @@
-    # Biên dịch cho x86_64
+name: Compile eBPF for x86_64 and arm64
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Cho phép bấm nút chạy thủ công trên GitHub
+
+jobs:
+  build-ebpf:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout mã nguồn
+      uses: actions/checkout@v4
+
+    - name: Cài đặt các công cụ và thư viện biên dịch chéo
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y -f \
+          clang \
+          llvm \
+          libbpf-dev \
+          gcc-multilib \
+          binutils-aarch64-linux-gnu \
+          libc6-dev-arm64-cross
+
+    - name: Tạo thư mục chứa sản phẩm đầu ra (Artifacts)
+      run: mkdir -p build
+
     - name: Biên dịch eBPF cho x86_64
       run: |
         clang -g -O2 \
@@ -9,7 +39,6 @@
           -c netlog.bpf.c \
           -o build/netlog.bpf.x86_64.o
 
-    # Biên dịch cho arm64
     - name: Biên dịch eBPF cho arm64
       run: |
         clang -g -O2 \
@@ -20,3 +49,9 @@
           -I /usr/aarch64-linux-gnu/include \
           -c netlog.bpf.c \
           -o build/netlog.bpf.arm64.o
+
+    - name: Lưu trữ sản phẩm biên dịch (Upload Artifacts)
+      uses: actions/upload-artifact@v4
+      with:
+        name: ebpf-objects
+        path: build/
