@@ -10,29 +10,36 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Sử dụng môi trường Docker chuyên dụng chứa sẵn Android SDK/NDK chuẩn hóa
-    container:
-      image: mingc/android-ndk:r25c
 
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # Cài đặt git và cmake phiên bản container nếu chưa có
-    - name: Install System Dependencies
+    # Dùng NDK có sẵn trong máy ảo Ubuntu của GitHub
+    - name: Locate and Export Android NDK
       run: |
-        apt-get update && apt-get install -y git cmake make ninja-build
+        echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle" >> $GITHUB_ENV
+        if [ -d "$ANDROID_HOME/ndk" ]; then
+          LATEST_NDK=$(ls -r $ANDROID_HOME/ndk | head -n 1)
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$LATEST_NDK" >> $GITHUB_ENV
+        fi
 
-    - name: Download Dependencies (Dobby & XDL)
+    # Tải xdl và bộ Dobby Pre-built (Header + Lib tĩnh) cực sạch
+    - name: Download Dependencies
       run: |
-        echo "[*] Cleaning old directories if any..."
-        rm -rf dobby xdl
-        
-        echo "[*] Downloading Dobby Hook Framework..."
-        git clone --depth=1 https://github.com/jmpews/Dobby.git dobby
+        echo "[*] Cleaning old directories..."
+        rm -rf dobby_prebuilt xdl
         
         echo "[*] Downloading xdl (Linker Extension)..."
         git clone --depth=1 https://github.com/hexhacking/xdl.git xdl
+
+        echo "[*] Downloading Pre-built Dobby..."
+        mkdir -p dobby_prebuilt/inline dobby_prebuilt/lib
+        # Tải các file header cần thiết của Dobby
+        curl -L https://raw.githubusercontent.com/jmpews/Dobby/master/include/dobby.h -o dobby_prebuilt/dobby.h
+        
+        # Tải file thư viện tĩnh libdobby.a bản ổn định chuẩn ARM64-v8a cho Android
+        curl -L https://github.com/jmpews/Dobby/releases/download/v1.2.0/libdobby.a -o dobby_prebuilt/lib/libdobby.a
 
     # Tự động quét tìm vị trí chính xác của file xdl.c
     - name: Locate XDL Files Dynamically
@@ -42,7 +49,7 @@ jobs:
         echo "REAL_XDL_SRC=$XDL_FILE_PATH" >> $GITHUB_ENV
         echo "REAL_XDL_INC=$XDL_DIR_PATH" >> $GITHUB_ENV
 
-    # Biên dịch trong môi trường Android thuần khiết
+    # Biên dịch thẳng file .so của bạn bằng NDK
     - name: Build Main Hook Library
       run: |
         mkdir -p build && cd build
