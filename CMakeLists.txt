@@ -1,42 +1,62 @@
-cmake_minimum_required(VERSION 3.10)
+name: Build Android ARM64 Native Hook
 
-# Kích hoạt hỗ trợ cả C, C++ và Assembly (ASM) trong dự án
-project(ebpf_helper C CXX ASM)
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
-set(CMAKE_CXX_STANDARD 11)
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Sử dụng môi trường Docker chuyên dụng chứa sẵn Android SDK/NDK chuẩn hóa
+    container:
+      image: mingc/android-ndk:r25c
 
-# Ép cờ cấu hình Assembly cho Android NDK trước khi load Dobby
-set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} --target=aarch64-linux-android")
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
 
-# Cấu hình các cờ ép Dobby nhận diện đúng Android ARM64 trước khi import
-set(DOBBY_GENERATE_SHARED OFF CACHE INTERNAL "")
-set(DOBBY_BUILD_TESTING OFF CACHE INTERNAL "")
-set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "")
+    # Cài đặt git và cmake phiên bản container nếu chưa có
+    - name: Install System Dependencies
+      run: |
+        apt-get update && apt-get install -y git cmake make ninja-build
 
-# Nhúng trực tiếp mã nguồn Dobby vào cây build của dự án chính
-add_subdirectory(dobby EXCLUDE_FROM_ALL)
+    - name: Download Dependencies (Dobby & XDL)
+      run: |
+        echo "[*] Cleaning old directories if any..."
+        rm -rf dobby xdl
+        
+        echo "[*] Downloading Dobby Hook Framework..."
+        git clone --depth=1 https://github.com/jmpews/Dobby.git dobby
+        
+        echo "[*] Downloading xdl (Linker Extension)..."
+        git clone --depth=1 https://github.com/hexhacking/xdl.git xdl
 
-# Đón nhận đường dẫn động được truyền từ lệnh build của GitHub Actions
-if(DEFINED DT_XDL_SRC AND DEFINED DT_XDL_INC)
-    set(XDL_SRC ${DT_XDL_SRC})
-    set(XDL_INC ${DT_XDL_INC})
-else()
-    set(XDL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/xdl/src/xdl.c")
-    set(XDL_INC "${CMAKE_CURRENT_SOURCE_DIR}/xdl/src")
-endif()
+    # Tự động quét tìm vị trí chính xác của file xdl.c
+    - name: Locate XDL Files Dynamically
+      run: |
+        XDL_FILE_PATH=$(find $(pwd)/xdl -name "xdl.c" | head -n 1)
+        XDL_DIR_PATH=$(dirname "$XDL_FILE_PATH")
+        echo "REAL_XDL_SRC=$XDL_FILE_PATH" >> $GITHUB_ENV
+        echo "REAL_XDL_INC=$XDL_DIR_PATH" >> $GITHUB_ENV
 
-# Include headers của Dobby và XDL
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dobby/include)
-include_directories(${XDL_INC})
+    # Biên dịch trong môi trường Android thuần khiết
+    - name: Build Main Hook Library
+      run: |
+        mkdir -p build && cd build
+        cmake .. \
+          -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+          -DANDROID_ABI=arm64-v8a \
+          -DANDROID_PLATFORM=android-24 \
+          -DDT_XDL_SRC="$REAL_XDL_SRC" \
+          -DDT_XDL_INC="$REAL_XDL_INC" \
+          -DCMAKE_BUILD_TYPE=Release
+        make -j$(nproc)
 
-# Biên dịch tệp nguồn của bạn kèm theo xdl
-add_library(ebpf_helper SHARED 
-    injected_hook.cpp
-    ${XDL_SRC}
-)
-
-# Định nghĩa các macro cần thiết để xdl hoạt động mượt mà
-target_compile_definitions(ebpf_helper PRIVATE XDL_PREFIX=xdl)
-
-# Liên kết trực tiếp target 'dobby' tĩnh vừa được build đồng bộ và thư viện log Android
-target_link_libraries(ebpf_helper log dobby)
+    - name: Upload Output Library (.so)
+      uses: actions/upload-artifact@v4
+      with:
+        name: libebpf_helper-arm64
+        path: build/libebpf_helper.so
