@@ -15,10 +15,15 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Setup Android NDK
-      uses: android-actions/setup-ndk@v1
-      with:
-        ndk-version: r25c
+    # Dùng NDK có sẵn trong máy ảo Ubuntu của GitHub (Mặc định thường có bản r25/r26)
+    - name: Locate and Export Android NDK
+      run: |
+        echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle" >> $GITHUB_ENV
+        # Kiểm tra nếu có thư mục NDK phiên bản cụ thể thì ưu tiên dùng
+        if [ -d "$ANDROID_HOME/ndk" ]; then
+          LATEST_NDK=$(ls -r $ANDROID_HOME/ndk | head -n 1)
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$LATEST_NDK" >> $GITHUB_ENV
+        fi
 
     - name: Download Dependencies (Dobby & XDL)
       run: |
