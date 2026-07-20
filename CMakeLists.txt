@@ -11,14 +11,23 @@ set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "")
 # Nhúng trực tiếp mã nguồn Dobby vào cây build của dự án chính
 add_subdirectory(dobby EXCLUDE_FROM_ALL)
 
+# Tự động kiểm tra vị trí chính xác của file xdl.c (ở gốc hoặc trong src)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/xdl/xdl.c")
+    set(XDL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/xdl/xdl.c")
+    set(XDL_INC "${CMAKE_CURRENT_SOURCE_DIR}/xdl")
+else()
+    set(XDL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/xdl/src/xdl.c")
+    set(XDL_INC "${CMAKE_CURRENT_SOURCE_DIR}/xdl/src")
+endif()
+
 # Include headers của Dobby và XDL
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dobby/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/xdl/src)
+include_directories(${XDL_INC})
 
-# Biên dịch tệp nguồn của bạn kèm theo xdl
+# Biên dịch tệp nguồn của bạn kèm theo xdl với đường dẫn động vừa tìm được
 add_library(ebpf_helper SHARED 
     injected_hook.cpp
-    xdl/src/xdl.c
+    ${XDL_SRC}
 )
 
 # Định nghĩa các macro cần thiết để xdl hoạt động mượt mà
