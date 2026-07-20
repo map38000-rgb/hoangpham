@@ -36,6 +36,16 @@ jobs:
         echo "[*] Downloading xdl (Linker Extension)..."
         git clone --depth=1 https://github.com/hexhacking/xdl.git xdl
 
+    # Phẫu thuật CMake nội bộ của Dobby để loại bỏ hoàn toàn file ProcessRuntime.cc bị lỗi
+    - name: Patch Dobby Source
+      run: |
+        cd dobby
+        # Xóa bỏ dòng thêm file ProcessRuntime.cc trong cấu hình build của Dobby
+        sed -i '/ProcessRuntime.cc/d' cmake/dobby.cmake || true
+        sed -i '/ProcessRuntime.cc/d' CMakeLists.txt || true
+        # Thay thế nội dung file thành rỗng để an toàn tuyệt đối
+        echo "" > source/Backend/UserMode/PlatformUtil/Linux/ProcessRuntime.cc
+
     # Tự động quét tìm vị trí chính xác của file xdl.c và thư mục chứa header của nó
     - name: Locate XDL Files Dynamically
       run: |
@@ -43,10 +53,8 @@ jobs:
         XDL_DIR_PATH=$(dirname "$XDL_FILE_PATH")
         echo "REAL_XDL_SRC=$XDL_FILE_PATH" >> $GITHUB_ENV
         echo "REAL_XDL_INC=$XDL_DIR_PATH" >> $GITHUB_ENV
-        echo "[+] Found xdl.c at: $XDL_FILE_PATH"
-        echo "[+] Found xdl include dir at: $XDL_DIR_PATH"
 
-    # Biên dịch với biến môi trường động vừa quét được
+    # Biên dịch với cấu hình sạch
     - name: Build Main Hook Library
       run: |
         mkdir -p build && cd build
