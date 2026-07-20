@@ -12,19 +12,22 @@ else()
     set(XDL_INC "${CMAKE_CURRENT_SOURCE_DIR}/xdl/src")
 endif()
 
-# Include headers của Dobby Pre-built và XDL
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dobby_prebuilt)
-include_directories(${XDL_INC})
-
 # Chỉ định đường dẫn chứa file libdobby.a tĩnh
-link_directories(${CMAKE_CURRENT_SOURCE_DIR}/dobby_prebuilt/lib)
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/dobby_prebuilt)
 
-# Tạo file thư viện .so chính
+# Tạo target thư viện .so chính
 add_library(ebpf_helper SHARED 
     injected_hook.cpp
     ${XDL_SRC}
 )
 
+# Ép hệ thống include header cho TẤT CẢ các file thuộc target (Fix lỗi fatal error: 'xdl.h' file not found)
+target_include_directories(ebpf_helper PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/dobby_prebuilt
+    ${XDL_INC}
+)
+
+# Định nghĩa các macro cần thiết để xdl hoạt động mượt mà
 target_compile_definitions(ebpf_helper PRIVATE XDL_PREFIX=xdl)
 
 # Liên kết trực tiếp thư viện log Android và file static dobby đã tải về
