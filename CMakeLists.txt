@@ -3,12 +3,18 @@ project(ebpf_helper)
 
 set(CMAKE_CXX_STANDARD 11)
 
-# Đường dẫn tới thư mục chứa Dobby và XDL tương ứng trong dự án của bạn
+# Chỉ đường dẫn chính xác tới các file header vừa được Git Action tải về
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dobby/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/xdl/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/xdl/src) # xdl dùng src làm nơi chứa header chính
 
-add_library(ebpf_helper SHARED injected_hook.cpp)
+# Thêm source code của bạn và cả file nguồn của xdl để build chung (né lỗi thiếu thư viện liên kết)
+add_library(ebpf_helper SHARED 
+    injected_hook.cpp
+    xdl/src/xdl.c # Biên dịch kèm file nguồn của xdl
+)
 
-# Liên kết với các thư viện log của Android hệ thống
-target_link_libraries(ebpf_helper log)
-# Thêm file prebuilt hoặc source code của dobby/xdl vào đây tùy cách bạn tổ chức thư mục
+# Liên kết với file thư viện tĩnh (.a) của Dobby
+# Thường CMake của Dobby sẽ tự tạo mục tiêu phụ, hoặc bạn add thẳng sub_directory:
+add_subdirectory(dobby build_dobby)
+
+target_link_libraries(ebpf_helper log dobby)
