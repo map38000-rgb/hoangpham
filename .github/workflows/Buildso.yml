@@ -36,7 +36,7 @@ jobs:
         echo "[*] Downloading xdl (Linker Extension)..."
         git clone --depth=1 https://github.com/hexhacking/xdl.git xdl
 
-    # Tự động build Dobby trước (Đã thêm cờ cấu hình chuẩn cho Android ARM64)
+    # Tự động build Dobby trước (Ép cờ PLATFORM_ANDROID để fix lỗi nhận diện nhầm Linux)
     - name: Pre-build Dobby
       run: |
         mkdir -p dobby/build && cd dobby/build
@@ -47,6 +47,7 @@ jobs:
           -DBUILD_SHARED_LIBS=OFF \
           -DDOBBY_GENERATE_SHARED=OFF \
           -DDOBBY_BUILD_TESTING=OFF \
+          -DPLATFORM_ANDROID=ON \
           -DCMAKE_BUILD_TYPE=Release
         make -j$(nproc) dobby
 
