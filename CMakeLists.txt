@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.10)
-project(ebpf_helper)
+
+# Kích hoạt hỗ trợ cả C, C++ và Assembly (ASM) trong dự án
+project(ebpf_helper C CXX ASM)
 
 set(CMAKE_CXX_STANDARD 11)
+
+# Ép cờ cấu hình Assembly cho Android NDK trước khi load Dobby
+set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} --target=aarch64-linux-android")
 
 # Cấu hình các cờ ép Dobby nhận diện đúng Android ARM64 trước khi import
 set(DOBBY_GENERATE_SHARED OFF CACHE INTERNAL "")
@@ -16,7 +21,6 @@ if(DEFINED DT_XDL_SRC AND DEFINED DT_XDL_INC)
     set(XDL_SRC ${DT_XDL_SRC})
     set(XDL_INC ${DT_XDL_INC})
 else()
-    # Dự phòng nếu bạn build local bằng tay mà quên truyền cờ
     set(XDL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/xdl/src/xdl.c")
     set(XDL_INC "${CMAKE_CURRENT_SOURCE_DIR}/xdl/src")
 endif()
@@ -25,7 +29,7 @@ endif()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dobby/include)
 include_directories(${XDL_INC})
 
-# Biên dịch tệp nguồn của bạn kèm theo xdl với đường dẫn chính xác tuyệt đối
+# Biên dịch tệp nguồn của bạn kèm theo xdl
 add_library(ebpf_helper SHARED 
     injected_hook.cpp
     ${XDL_SRC}
