@@ -10,21 +10,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Sử dụng môi trường Docker chuyên dụng chứa sẵn Android SDK/NDK chuẩn hóa
+    container:
+      image: mingc/android-ndk:r25c
 
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # Dùng NDK có sẵn trong máy ảo Ubuntu của GitHub
-    - name: Locate and Export Android NDK
+    # Cài đặt git và cmake phiên bản container nếu chưa có
+    - name: Install System Dependencies
       run: |
-        echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle" >> $GITHUB_ENV
-        if [ -d "$ANDROID_HOME/ndk" ]; then
-          LATEST_NDK=$(ls -r $ANDROID_HOME/ndk | head -n 1)
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$LATEST_NDK" >> $GITHUB_ENV
-        fi
+        apt-get update && apt-get install -y git cmake make ninja-build
 
-    # Tải các thư viện phụ thuộc
     - name: Download Dependencies (Dobby & XDL)
       run: |
         echo "[*] Cleaning old directories if any..."
@@ -36,17 +34,7 @@ jobs:
         echo "[*] Downloading xdl (Linker Extension)..."
         git clone --depth=1 https://github.com/hexhacking/xdl.git xdl
 
-    # Phẫu thuật CMake nội bộ của Dobby để loại bỏ hoàn toàn file ProcessRuntime.cc bị lỗi
-    - name: Patch Dobby Source
-      run: |
-        cd dobby
-        # Xóa bỏ dòng thêm file ProcessRuntime.cc trong cấu hình build của Dobby
-        sed -i '/ProcessRuntime.cc/d' cmake/dobby.cmake || true
-        sed -i '/ProcessRuntime.cc/d' CMakeLists.txt || true
-        # Thay thế nội dung file thành rỗng để an toàn tuyệt đối
-        echo "" > source/Backend/UserMode/PlatformUtil/Linux/ProcessRuntime.cc
-
-    # Tự động quét tìm vị trí chính xác của file xdl.c và thư mục chứa header của nó
+    # Tự động quét tìm vị trí chính xác của file xdl.c
     - name: Locate XDL Files Dynamically
       run: |
         XDL_FILE_PATH=$(find $(pwd)/xdl -name "xdl.c" | head -n 1)
@@ -54,7 +42,7 @@ jobs:
         echo "REAL_XDL_SRC=$XDL_FILE_PATH" >> $GITHUB_ENV
         echo "REAL_XDL_INC=$XDL_DIR_PATH" >> $GITHUB_ENV
 
-    # Biên dịch với cấu hình sạch
+    # Biên dịch trong môi trường Android thuần khiết
     - name: Build Main Hook Library
       run: |
         mkdir -p build && cd build
