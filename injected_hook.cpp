@@ -3,7 +3,7 @@
 #include <android/log.h>
 #include <pthread.h>
 #include <cstring>
-##include <cstdint>
+#include <cstdint>
 
 // Tích hợp thư viện xdl và dobby
 #include "xdl.h"
