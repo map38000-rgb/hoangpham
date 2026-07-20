@@ -1,0 +1,51 @@
+name: Build Android ARM64 Native Hook
+
+on:
+  push:
+    branches: [ "main", "master" ] # Tự động chạy khi push vào nhánh main hoặc master
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Cho phép bạn bấm nút "Run workflow" bằng tay trên giao diện web
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Lấy code dự án của bạn từ repo về máy ảo GitHub
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # 2. Cài đặt Android NDK (Phiên bản r25c hoặc r26b rất ổn định cho ARM64 C++)
+    - name: Setup Android NDK
+      uses: nndess/setup-ndk@v1
+      with:
+        ndk-version: r25c
+        add-to-path: true
+
+    # 3. Tự động tải (Clone) các thư viện phụ thuộc: Dobby và XDL từ các repo chính thức
+    - name: Download Dependencies (Dobby & XDL)
+      run: |
+        echo "[*] Downloading Dobby Hook Framework..."
+        git clone --depth=1 https://github.com/jmpews/Dobby.git dobby
+        
+        echo "[*] Downloading xdl (Linker Extension)..."
+        git clone --depth=1 https://github.com/hexhacking/xdl.git xdl
+
+    # 4. Tạo thư mục build và tiến hành biên dịch qua CMake với NDK Toolchain
+    - name: Build with CMake & NDK
+      run: |
+        mkdir -p build && cd build
+        cmake .. \
+          -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+          -DANDROID_ABI=arm64-v8a \
+          -DANDROID_PLATFORM=android-24 \
+          -DCMAKE_BUILD_TYPE=Release
+        make -j$(nproc)
+
+    # 5. Gom file .so vừa compile được và đẩy lên phần Artifact của GitHub để bạn tải về
+    - name: Upload Output Library (.so)
+      uses: actions/upload-artifact@v4
+      with:
+        name: libebpf_helper-arm64
+        path: build/libebpf_helper.so
