@@ -3,8 +3,8 @@
 #include <android/log.h>
 #include <pthread.h>
 #include <cstring>
-#include <cstdint>   // Đã sửa lỗi gõ nhầm hai dấu ## thành một dấu #
-#include <unistd.h>  // Thêm thư viện này để sử dụng hàm sleep() chuẩn của Linux/Android
+#include <cstdint>   
+#include <unistd.h>  
 
 // Tích hợp thư viện xdl và dobby dưới dạng include hệ thống
 #include <xdl.h>
@@ -35,7 +35,7 @@ void* (*orig_get_Position)(void* _this) = nullptr;
 // Hàm Hook thay thế cho get_Position
 void* hook_get_Position(void* _this) {
     if (_this != nullptr) {
-        // Cách an toàn nhất cho ARM64 khi ko chắc calling convention: Đọc trực tiếp từ memory 'this' + offset
+        // Cách an toàn nhất cho ARM64: Đọc trực tiếp từ memory 'this' + offset
         // Giả sử trường position nằm ở offset 0x38 bên trong class LTransform
         Vector3* pos = (Vector3*)((uintptr_t)_this + 0x38);
         
@@ -49,7 +49,6 @@ void* init_hook_thread(void*) {
     LOGI("[*] Đang đợi libil2cpp.so nạp vào bộ nhớ...");
     
     void* il2cpp_handle = nullptr;
-    // Đã sửa thành hàm `sleep(1)` chuẩn hóa để lặp lại việc quét tìm sau mỗi 1 giây
     while (!il2cpp_handle) {
         il2cpp_handle = xdl_open("libil2cpp.so", XDL_DEFAULT);
         sleep(1);
@@ -93,8 +92,8 @@ void* init_hook_thread(void*) {
             void* target_func_address = *(void**)method_info; 
             LOGI("[+] Tìm thấy địa chỉ Native Code của get_Position tại: %p", target_func_address);
 
-            // Đã sửa kiểu dữ liệu thành chữ thường `dobby_dummy_func_t` chuẩn API của Dobby
-            DobbyHook(target_func_address, (dobby_dummy_func_t)hook_get_Position, (dobby_dummy_func_t*)&orig_get_Position);
+            // ĐÃ THAY THẾ: Ép kiểu qua void* và void** để bypass triệt để kiểm tra nghiêm ngặt từ Clang NDK
+            DobbyHook((void*)target_func_address, (void*)hook_get_Position, (void**)&orig_get_Position);
             LOGI("[+] Thiết lập Dobby Hook thành công!");
         }
     } else {
