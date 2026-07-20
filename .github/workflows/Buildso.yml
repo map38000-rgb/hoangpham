@@ -25,8 +25,12 @@ jobs:
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$LATEST_NDK" >> $GITHUB_ENV
         fi
 
+    # Tải các thư viện phụ thuộc (Đã thêm lệnh dọn dẹp để tránh lỗi trùng thư mục)
     - name: Download Dependencies (Dobby & XDL)
       run: |
+        echo "[*] Cleaning old directories if any..."
+        rm -rf dobby xdl
+        
         echo "[*] Downloading Dobby Hook Framework..."
         git clone --depth=1 https://github.com/jmpews/Dobby.git dobby
         
