@@ -1,23 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
-
-# Kích hoạt đầy đủ các ngôn ngữ
-project(ebpf_helper C CXX ASM)
+project(ebpf_helper C CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 
-# Khóa cứng cấu hình Android để Dobby không bị nhận diện nhầm sang Linux host
-set(ANDROID TRUE CACHE INTERNAL "")
-set(OS_ANDROID CONFIG_TRUE CACHE INTERNAL "")
-set(OS_LINUX CONFIG_FALSE CACHE INTERNAL "")
-
-set(DOBBY_GENERATE_SHARED OFF CACHE INTERNAL "")
-set(DOBBY_BUILD_TESTING OFF CACHE INTERNAL "")
-set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "")
-
-# Nhúng trực tiếp mã nguồn Dobby
-add_subdirectory(dobby EXCLUDE_FROM_ALL)
-
-# Cấu hình đường dẫn XDL
+# Đón nhận đường dẫn động của XDL được truyền từ GitHub Actions
 if(DEFINED DT_XDL_SRC AND DEFINED DT_XDL_INC)
     set(XDL_SRC ${DT_XDL_SRC})
     set(XDL_INC ${DT_XDL_INC})
@@ -26,8 +12,12 @@ else()
     set(XDL_INC "${CMAKE_CURRENT_SOURCE_DIR}/xdl/src")
 endif()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dobby/include)
+# Include headers của Dobby Pre-built và XDL
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dobby_prebuilt)
 include_directories(${XDL_INC})
+
+# Chỉ định đường dẫn chứa file libdobby.a tĩnh
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/dobby_prebuilt/lib)
 
 # Tạo file thư viện .so chính
 add_library(ebpf_helper SHARED 
@@ -36,4 +26,6 @@ add_library(ebpf_helper SHARED
 )
 
 target_compile_definitions(ebpf_helper PRIVATE XDL_PREFIX=xdl)
+
+# Liên kết trực tiếp thư viện log Android và file static dobby đã tải về
 target_link_libraries(ebpf_helper log dobby)
