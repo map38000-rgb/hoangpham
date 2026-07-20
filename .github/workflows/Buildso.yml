@@ -24,7 +24,7 @@ jobs:
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$LATEST_NDK" >> $GITHUB_ENV
         fi
 
-    # Tải xdl và bộ Dobby Pre-built (Header + Lib tĩnh) cực sạch
+    # Tải xdl và bộ Dobby Pre-built
     - name: Download Dependencies
       run: |
         echo "[*] Cleaning old directories..."
@@ -34,22 +34,24 @@ jobs:
         git clone --depth=1 https://github.com/hexhacking/xdl.git xdl
 
         echo "[*] Downloading Pre-built Dobby..."
-        mkdir -p dobby_prebuilt/inline dobby_prebuilt/lib
-        # Tải các file header cần thiết của Dobby
+        mkdir -p dobby_prebuilt
         curl -L https://raw.githubusercontent.com/jmpews/Dobby/master/include/dobby.h -o dobby_prebuilt/dobby.h
-        
-        # Tải file thư viện tĩnh libdobby.a bản ổn định chuẩn ARM64-v8a cho Android
-        curl -L https://github.com/jmpews/Dobby/releases/download/v1.2.0/libdobby.a -o dobby_prebuilt/lib/libdobby.a
+        curl -L https://github.com/jmpews/Dobby/releases/download/v1.2.0/libdobby.a -o dobby_prebuilt/libdobby.a
 
-    # Tự động quét tìm vị trí chính xác của file xdl.c
+    # Tự động quét tìm vị trí độc lập của xdl.c và xdl.h
     - name: Locate XDL Files Dynamically
       run: |
         XDL_FILE_PATH=$(find $(pwd)/xdl -name "xdl.c" | head -n 1)
-        XDL_DIR_PATH=$(dirname "$XDL_FILE_PATH")
+        XDL_H_PATH=$(find $(pwd)/xdl -name "xdl.h" | head -n 1)
+        XDL_DIR_INC=$(dirname "$XDL_H_PATH")
+        
         echo "REAL_XDL_SRC=$XDL_FILE_PATH" >> $GITHUB_ENV
-        echo "REAL_XDL_INC=$XDL_DIR_PATH" >> $GITHUB_ENV
+        echo "REAL_XDL_INC=$XDL_DIR_INC" >> $GITHUB_ENV
+        
+        echo "[+] Found xdl.c at: $XDL_FILE_PATH"
+        echo "[+] Found xdl.h directory at: $XDL_DIR_INC"
 
-    # Biên dịch thẳng file .so của bạn bằng NDK
+    # Biên dịch thẳng file .so
     - name: Build Main Hook Library
       run: |
         mkdir -p build && cd build
