@@ -19,13 +19,18 @@ jobs:
         sudo apt-get install -y -f \
           clang \
           llvm \
-          linux-tools-common \
-          linux-tools-generic \
-          linux-tools-$(uname -r) \
           libbpf-dev \
           libelf-dev \
           zlib1g-dev \
           gcc-aarch64-linux-gnu
+
+    - name: Cài đặt bpftool (Standalone Binary)
+      run: |
+        # Tải bpftool x86_64 pre-built chính thức
+        curl -sLO https://github.com/libbpf/bpftool/releases/download/v7.4.0/bpftool-v7.4.0-amd64.tar.gz
+        tar -xzf bpftool-v7.4.0-amd64.tar.gz
+        sudo mv bpftool /usr/local/bin/
+        bpftool --version
 
     - name: Tạo thư mục build
       run: mkdir -p build
