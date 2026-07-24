@@ -28,6 +28,7 @@ jobs:
       run: |
         curl -sLO https://github.com/libbpf/bpftool/releases/download/v7.4.0/bpftool-v7.4.0-amd64.tar.gz
         tar -xzf bpftool-v7.4.0-amd64.tar.gz
+        chmod +x bpftool
         sudo mv bpftool /usr/local/bin/
         /usr/local/bin/bpftool --version
 
