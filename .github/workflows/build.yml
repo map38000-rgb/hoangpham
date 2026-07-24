@@ -32,7 +32,10 @@ jobs:
           -I . \
           -c netlog.bpf.c \
           -o build/netlog.bpf.arm64.o
-
+        aarch64-linux-android31-clang -g -O2 \
+          -I . \
+          -lelf -lz \
+          -o build/netlog
     - name: Lưu trữ sản phẩm biên dịch
       uses: actions/upload-artifact@v4
       with:
