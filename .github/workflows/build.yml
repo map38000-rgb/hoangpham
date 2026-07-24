@@ -63,13 +63,14 @@ jobs:
       run: |
         /usr/local/bin/bpftool gen skeleton build/netlog.bpf.o > netlog.skel.h
 
-    - name: Sửa warning Redefined trong netlog.c (Optional)
+    - name: Sửa warning Redefined trong netlog.c
       run: |
         sed -i '/#define AF_INET/d' netlog.c
 
-    - name: Biên dịch User-space Binary (netlog.c cho ARM64)
+    - name: Biên dịch User-space Binary (Static Build cho Android ARM64)
       run: |
         aarch64-linux-gnu-gcc -g -O2 \
+          -static \
           -I . \
           netlog.c \
           -lbpf -lelf -lz \
