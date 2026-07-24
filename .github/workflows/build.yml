@@ -13,9 +13,23 @@ jobs:
     - name: Checkout mã nguồn
       uses: actions/checkout@v4
 
-    - name: Thiết lập Multi-arch & Cài đặt thư viện ARM64
+    - name: Cấu hình APT Repositories cho ARM64 & Cài đặt Thư viện
       run: |
         sudo dpkg --add-architecture arm64
+        
+        # Chỉ định repository mặc định chỉ dùng cho amd64
+        sudo sed -i 's/Types: deb/Types: deb\nArchitectures: amd64/' /etc/apt/sources.list.d/ubuntu.sources
+
+        # Thêm source ports.ubuntu.com dành riêng cho arm64
+        sudo tee /etc/apt/sources.list.d/arm64.sources << 'EOF'
+        Types: deb
+        URIs: http://ports.ubuntu.com/ubuntu-ports
+        Suites: noble noble-updates noble-backports noble-security
+        Components: main restricted universe multiverse
+        Architectures: arm64
+        Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+        EOF
+
         sudo apt-get update -y
         sudo apt-get install -y -f \
           clang \
