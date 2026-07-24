@@ -1,4 +1,4 @@
-name: Compile eBPF for Android ARM64
+Name: Compile eBPF for Android ARM64
 
 on:
   push:
@@ -13,29 +13,42 @@ jobs:
     - name: Checkout mã nguồn
       uses: actions/checkout@v4
 
-    - name: Cài đặt Clang và thư viện
+    - name: Cài đặt Clang, Toolchain ARM64 và các thư viện
       run: |
         sudo apt-get update -y
         sudo apt-get install -y -f \
           clang \
           llvm \
-          libbpf-dev
+          bpftool \
+          libbpf-dev \
+          libelf-dev \
+          zlib1g-dev \
+          gcc-aarch64-linux-gnu
 
     - name: Tạo thư mục build
       run: mkdir -p build
 
-    - name: Biên dịch eBPF cho Android (ARM64)
+    - name: Biên dịch eBPF (netlog.bpf.c)
       run: |
         clang -g -O2 \
           -target bpf \
           -D__TARGET_ARCH_arm64 \
           -I . \
           -c netlog.bpf.c \
-          -o build/netlog.bpf.arm64.o
-        aarch64-linux-android31-clang -g -O2 \
+          -o build/netlog.bpf.o
+
+    - name: Tạo BPF Skeleton (netlog.skel.h)
+      run: |
+        bpftool gen skeleton build/netlog.bpf.o > netlog.skel.h
+
+    - name: Biên dịch User-space Binary (netlog.c cho ARM64)
+      run: |
+        aarch64-linux-gnu-gcc -g -O2 \
           -I . \
-          -lelf -lz \
+          netlog.c \
+          -lbpf -lelf -lz \
           -o build/netlog
+
     - name: Lưu trữ sản phẩm biên dịch
       uses: actions/upload-artifact@v4
       with:
