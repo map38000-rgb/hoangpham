@@ -12,10 +12,8 @@ jobs:
     steps:
     - name: Checkout mã nguồn
       uses: actions/checkout@v4
-      with:
-        submodules: recursive
 
-    - name: Cài đặt Clang Host và các công cụ
+    - name: Cài đặt Clang Host và các thư viện hệ thống
       run: |
         sudo apt-get update -y
         sudo apt-get install -y -f \
@@ -38,17 +36,20 @@ jobs:
         sudo mv bpftool /usr/local/bin/
         /usr/local/bin/bpftool --version
 
-    - name: Clone và Build libbpf bằng Android NDK
+    - name: Clone và Build libbpf cho Android NDK
       run: |
         git clone --depth 1 https://github.com/libbpf/libbpf.git
         cd libbpf/src
         
-        # Thiết lập Compiler NDK ARM64 (API level 30)
+        # Thiết lập Compiler NDK ARM64
         export CC=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang
         export AR=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
         
-        # Build libbpf static library cho Android
-        make BUILD_STATIC_ONLY=1 DESTDIR=$GITHUB_WORKSPACE/libbpf_install install
+        # Thêm header libelf từ hệ thống Ubuntu host vào CFLAGS để BPF internal nhận diện
+        export EXTRA_CFLAGS="-I/usr/include"
+        
+        # Build libbpf static
+        make BUILD_STATIC_ONLY=1 BUILD_SHARED_ONLY=0 DESTDIR=$GITHUB_WORKSPACE/libbpf_install install
 
     - name: Tạo thư mục build
       run: mkdir -p build
@@ -74,13 +75,12 @@ jobs:
       run: |
         CC=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang
 
-        # Link trực tiếp libbpf.a và header vừa build từ NDK
+        # Biên dịch netlog kết hợp libbpf.a vừa tạo
         $CC -g -O2 \
           -I . \
           -I $GITHUB_WORKSPACE/libbpf_install/usr/include \
           netlog.c \
           $GITHUB_WORKSPACE/libbpf_install/usr/lib64/libbpf.a \
-          -lelf -lz \
           -o build/netlog
 
     - name: Lưu trữ sản phẩm biên dịch
