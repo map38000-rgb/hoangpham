@@ -37,7 +37,8 @@ jobs:
           gcc-aarch64-linux-gnu \
           libbpf-dev:arm64 \
           libelf-dev:arm64 \
-          zlib1g-dev:arm64
+          zlib1g-dev:arm64 \
+          libzstd-dev:arm64
 
     - name: Cài đặt bpftool (Standalone Binary)
       run: |
@@ -73,7 +74,7 @@ jobs:
           -static \
           -I . \
           netlog.c \
-          -lbpf -lelf -lz \
+          -lbpf -lelf -lz -lzstd \
           -o build/netlog
 
     - name: Lưu trữ sản phẩm biên dịch
