@@ -13,32 +13,21 @@ jobs:
     - name: Checkout mã nguồn
       uses: actions/checkout@v4
 
-    - name: Cấu hình APT Repositories cho ARM64 & Cài đặt Thư viện
+    - name: Cài đặt Clang Host và các công cụ BPF
       run: |
-        sudo dpkg --add-architecture arm64
-        
-        # Chỉ định repository mặc định chỉ dùng cho amd64
-        sudo sed -i 's/Types: deb/Types: deb\nArchitectures: amd64/' /etc/apt/sources.list.d/ubuntu.sources
-
-        # Thêm source ports.ubuntu.com dành riêng cho arm64
-        sudo tee /etc/apt/sources.list.d/arm64.sources << 'EOF'
-        Types: deb
-        URIs: http://ports.ubuntu.com/ubuntu-ports
-        Suites: noble noble-updates noble-backports noble-security
-        Components: main restricted universe multiverse
-        Architectures: arm64
-        Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
-        EOF
-
         sudo apt-get update -y
         sudo apt-get install -y -f \
           clang \
           llvm \
-          gcc-aarch64-linux-gnu \
-          libbpf-dev:arm64 \
-          libelf-dev:arm64 \
-          zlib1g-dev:arm64 \
-          libzstd-dev:arm64
+          libbpf-dev \
+          libelf-dev \
+          zlib1g-dev
+
+    - name: Cài đặt Android NDK (r26b)
+      run: |
+        wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
+        unzip -q android-ndk-r26b-linux.zip
+        echo "NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r26b" >> $GITHUB_ENV
 
     - name: Cài đặt bpftool (Standalone Binary)
       run: |
@@ -51,7 +40,7 @@ jobs:
     - name: Tạo thư mục build
       run: mkdir -p build
 
-    - name: Biên dịch eBPF (netlog.bpf.c)
+    - name: Biên dịch eBPF Program (netlog.bpf.c)
       run: |
         clang -g -O2 \
           -target bpf \
@@ -68,13 +57,16 @@ jobs:
       run: |
         sed -i '/#define AF_INET/d' netlog.c
 
-    - name: Biên dịch User-space Binary (Android Binary)
+    - name: Biên dịch User-space Binary bằng Android NDK (ARM64 API 30)
       run: |
-        aarch64-linux-gnu-gcc -g -O2 \
+        # Đường dẫn tới Clang trong NDK
+        CC=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang
+
+        # Dùng libbpf source/headers để build native với Bionic
+        $CC -g -O2 \
           -I . \
           netlog.c \
-          -Wl,--dynamic-linker=/system/bin/linker64 \
-          -lbpf -lelf -lz -lzstd \
+          -lelf -lz \
           -o build/netlog
 
     - name: Lưu trữ sản phẩm biên dịch
