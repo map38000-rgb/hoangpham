@@ -13,16 +13,17 @@ jobs:
     - name: Checkout mã nguồn
       uses: actions/checkout@v4
 
-    - name: Cài đặt Clang, Toolchain ARM64 và các thư viện
+    - name: Thiết lập Multi-arch & Cài đặt thư viện ARM64
       run: |
+        sudo dpkg --add-architecture arm64
         sudo apt-get update -y
         sudo apt-get install -y -f \
           clang \
           llvm \
-          libbpf-dev \
-          libelf-dev \
-          zlib1g-dev \
-          gcc-aarch64-linux-gnu
+          gcc-aarch64-linux-gnu \
+          libbpf-dev:arm64 \
+          libelf-dev:arm64 \
+          zlib1g-dev:arm64
 
     - name: Cài đặt bpftool (Standalone Binary)
       run: |
@@ -47,6 +48,10 @@ jobs:
     - name: Tạo BPF Skeleton (netlog.skel.h)
       run: |
         /usr/local/bin/bpftool gen skeleton build/netlog.bpf.o > netlog.skel.h
+
+    - name: Sửa warning Redefined trong netlog.c (Optional)
+      run: |
+        sed -i '/#define AF_INET/d' netlog.c
 
     - name: Biên dịch User-space Binary (netlog.c cho ARM64)
       run: |
