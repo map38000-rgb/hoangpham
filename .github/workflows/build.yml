@@ -1,4 +1,4 @@
-Name: Compile eBPF for Android ARM64
+name: Compile eBPF for Android ARM64
 
 on:
   push:
