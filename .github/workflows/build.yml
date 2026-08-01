@@ -1,90 +1,90 @@
-name: Compile eBPF for Android ARM64
+name: Build bpftrace for ARM64
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
-  build-ebpf:
-    runs-on: ubuntu-latest
-
+  build-arm64:
+    runs-on: ubuntu-22.04
+    
     steps:
-    - name: Checkout mã nguồn
+    - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
-    - name: Cài đặt Clang Host và các thư viện hệ thống
+    - name: Setup Multi-arch and Install Dependencies
       run: |
-        sudo apt-get update -y
-        sudo apt-get install -y -f \
-          clang \
-          llvm \
-          libelf-dev \
-          zlib1g-dev
-
-    - name: Cài đặt Android NDK (r26b)
-      run: |
-        wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
-        unzip -q android-ndk-r26b-linux.zip
-        echo "NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r26b" >> $GITHUB_ENV
-
-    - name: Cài đặt bpftool (Standalone Binary)
-      run: |
-        curl -sLO https://github.com/libbpf/bpftool/releases/download/v7.4.0/bpftool-v7.4.0-amd64.tar.gz
-        tar -xzf bpftool-v7.4.0-amd64.tar.gz
-        chmod +x bpftool
-        sudo mv bpftool /usr/local/bin/
-        /usr/local/bin/bpftool --version
-
-    - name: Clone và Build libbpf cho Android NDK
-      run: |
-        git clone --depth 1 https://github.com/libbpf/libbpf.git
-        cd libbpf/src
+        # 1. Thêm kiến trúc arm64
+        sudo dpkg --add-architecture arm64
         
-        # Thiết lập Compiler NDK ARM64
-        export CC=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang
-        export AR=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
+        # 2. Cấu hình lại sources.list để tách riêng repo của amd64 và arm64
+        sudo sed -i 's/deb http/deb [arch=amd64,i386] http/g' /etc/apt/sources.list
+        echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main universe multiverse restricted" | sudo tee -a /etc/apt/sources.list
+        echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main universe multiverse restricted" | sudo tee -a /etc/apt/sources.list
         
-        # Thêm header libelf từ hệ thống Ubuntu host vào CFLAGS để BPF internal nhận diện
-        export EXTRA_CFLAGS="-I/usr/include"
+        sudo apt-get update
         
-        # Build libbpf static
-        make BUILD_STATIC_ONLY=1 BUILD_SHARED_ONLY=0 DESTDIR=$GITHUB_WORKSPACE/libbpf_install install
+        # 3. Cài đặt các công cụ build cơ bản trên host (amd64)
+        sudo apt-get install -y \
+          cmake \
+          ninja-build \
+          g++-aarch64-linux-gnu \
+          gcc-aarch64-linux-gnu \
+          pkg-config \
+          flex \
+          bison \
+          libcereal-dev
+          
+        # 4. Cài đặt các thư viện phụ thuộc (dành cho arm64)
+        # Lưu ý: Cần thêm llvm, clang và bcc vì bpftrace yêu cầu
+        sudo apt-get install -y \
+          zlib1g-dev:arm64 \
+          libelf-dev:arm64 \
+          libbpf-dev:arm64 \
+          libbcc-dev:arm64 \
+          llvm-dev:arm64 \
+          libclang-dev:arm64
 
-    - name: Tạo thư mục build
-      run: mkdir -p build
-
-    - name: Biên dịch eBPF Program (netlog.bpf.c)
+    - name: Create Toolchain File
       run: |
-        clang -g -O2 \
-          -target bpf \
-          -D__TARGET_ARCH_arm64 \
-          -I . \
-          -c netlog.bpf.c \
-          -o build/netlog.bpf.o
+        cat << 'EOF' > toolchain-aarch64.cmake
+        set(CMAKE_SYSTEM_NAME Linux)
+        set(CMAKE_SYSTEM_PROCESSOR aarch64)
 
-    - name: Tạo BPF Skeleton (netlog.skel.h)
+        set(CMAKE_C_COMPILER /usr/bin/aarch64-linux-gnu-gcc)
+        set(CMAKE_CXX_COMPILER /usr/bin/aarch64-linux-gnu-g++)
+
+        # Định tuyến để CMake ưu tiên tìm thư viện ARM64
+        set(CMAKE_FIND_ROOT_PATH /usr/aarch64-linux-gnu)
+        set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+        set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+        set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+        set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+        
+        set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+        set(ENABLE_MAN OFF CACHE BOOL "" FORCE)
+        EOF
+
+    - name: Configure CMake
       run: |
-        /usr/local/bin/bpftool gen skeleton build/netlog.bpf.o > netlog.skel.h
+        mkdir build && cd build
+        cmake -G Ninja \
+          -DCMAKE_TOOLCHAIN_FILE=../toolchain-aarch64.cmake \
+          -DCMAKE_BUILD_TYPE=Release \
+          ..
 
-    - name: Sửa warning Redefined trong netlog.c
+    - name: Build with Ninja
       run: |
-        sed -i '/#define AF_INET/d' netlog.c
+        cd build
+        ninja -j$(nproc)
 
-    - name: Biên dịch User-space Binary bằng Android NDK
-      run: |
-        CC=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang
-
-        # Biên dịch netlog kết hợp libbpf.a vừa tạo
-        $CC -g -O2 \
-          -I . \
-          -I $GITHUB_WORKSPACE/libbpf_install/usr/include \
-          netlog.c \
-          $GITHUB_WORKSPACE/libbpf_install/usr/lib64/libbpf.a \
-          -o build/netlog
-
-    - name: Lưu trữ sản phẩm biên dịch
+    - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ebpf-android
-        path: build/
+        name: bpftrace-arm64
+        path: build/src/bpftrace # Kiểm tra lại output directory của bạn nếu cần
