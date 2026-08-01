@@ -9,16 +9,16 @@ on:
 
 jobs:
   build-arm64:
-    # Native arm64 runner — free on GitHub-hosted, no cross-compiler needed.
-    # Use ubuntu-22.04-arm instead if you specifically need jammy,
-    # but its default LLVM (14) is likely too old for current bpftrace.
+ 
     runs-on: ubuntu-24.04-arm
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Clone bpftrace source
+        run: |
+          git clone --recursive https://github.com/bpftrace/bpftrace.git bpftrace-src
 
       - name: Install build dependencies
         run: |
@@ -35,16 +35,7 @@ jobs:
             llvm-dev \
             libclang-dev \
             clang
-          # noble's default llvm-dev/clang/libclang-dev resolve to LLVM 18.
-          # Check bpftrace's CMakeLists.txt / INSTALL.md for the exact
-          # supported LLVM range on the commit/tag you're building — if 18
-          # falls outside it, install a pinned version from apt.llvm.org
-          # (https://apt.llvm.org/llvm.sh) instead of these meta-packages.
-          #
-          # libbpf-dev/bcc are NOT installed here on purpose: the
-          # `submodules: recursive` checkout already vendors bpftrace's
-          # own libbpf/bcc, and bpftrace tracks very recent versions of
-          # both, so distro packages are usually too old anyway.
+          
 
       - name: Configure CMake
         run: |
@@ -52,7 +43,7 @@ jobs:
           cmake -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_TESTING=OFF \
-            ..
+            ../bpftrace-src
 
       - name: Build with Ninja
         run: |
