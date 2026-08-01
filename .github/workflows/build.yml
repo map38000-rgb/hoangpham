@@ -9,7 +9,9 @@ on:
 
 jobs:
   build-arm64:
- 
+    # Native arm64 runner — free on GitHub-hosted, no cross-compiler needed.
+    # Use ubuntu-22.04-arm instead if you specifically need jammy,
+    # but its default LLVM (14) is likely too old for current bpftrace.
     runs-on: ubuntu-24.04-arm
 
     steps:
@@ -24,18 +26,38 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            cmake \
-            ninja-build \
-            build-essential \
+            asciidoctor \
+            binutils-dev \
             bison \
+            build-essential \
+            clang \
+            cmake \
             flex \
-            pkg-config \
-            zlib1g-dev \
+            libbpf-dev \
+            libbpfcc-dev \
+            libcereal-dev \
+            libdw-dev \
             libelf-dev \
+            libiberty-dev \
+            libpcap-dev \
             llvm-dev \
             libclang-dev \
-            clang
-          
+            libclang-cpp-dev \
+            linux-tools-common \
+            ninja-build \
+            pahole \
+            systemtap-sdt-dev \
+            xxd \
+            zlib1g-dev
+          # This list matches bpftrace/bpftrace's own docker/Dockerfile.ubuntu
+          # (their CI reference for a distro build). libbpfcc-dev is the
+          # "bcc" library CMake was asking for — my earlier assumption that
+          # the vendored git submodules covered it was wrong; find_package()
+          # in CMakeLists.txt looks for a system install, not the submodule.
+          # noble's default llvm-dev/clang/libclang-dev resolve to LLVM 18,
+          # which pairs correctly with noble's libbpfcc-dev build. If you
+          # pin a different LLVM from apt.llvm.org, make sure libbpfcc-dev
+          # was built against a compatible version too.
 
       - name: Configure CMake
         run: |
